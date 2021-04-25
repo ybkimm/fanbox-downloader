@@ -5,7 +5,7 @@ let isIgnoreFree = false;
 // 投稿の情報を個別に取得しない（基本true）
 let isEco = true;
 
-async function main() {
+export async function main() {
     if (window.location.origin === "https://downloads.fanbox.cc") {
         document.body.innerHTML = "";
         let tb = document.createElement("input");
@@ -88,7 +88,8 @@ async function getItemsById(postId) {
     for (; nextUrl != null; count++) {
         console.log(count + "回目");
         nextUrl = addByPostListUrl(nextUrl, isEco);
-        await setTimeout(() => {}, 100);
+        await setTimeout(() => {
+        }, 100);
     }
 }
 
@@ -170,3 +171,4 @@ function startDownload() {
 }
 
 await main();
+
