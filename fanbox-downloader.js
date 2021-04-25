@@ -5,7 +5,7 @@ let isIgnoreFree = false;
 // 投稿の情報を個別に取得しない（基本true）
 let isEco = true;
 
-async function main() {
+export async function main() {
     if (window.location.origin === "https://downloads.fanbox.cc") {
         document.body.innerHTML = "";
         let tb = document.createElement("input");
