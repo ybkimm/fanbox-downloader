@@ -150,16 +150,21 @@ async function downloadZip(json) {
     dlList = JSON.parse(json);
     let zip = new JSZip();
     let root = zip.folder(dlList.id);
+    let count = 1;
+    console.log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
     for (const [title, items] of Object.entries(dlList.items)) {
         let folder = root.folder(title);
+        let i = 1, l = items.length;
         for (const dl of items) {
-            console.log(`download ${dl.filename}`)
+            console.log(`download ${dl.filename} (${i++}/${l})`)
             const response = await fetch(dl.url);
             const blob = await response.blob();
             folder.file(dl.filename, blob)
             await setTimeout(() => {
             }, 100);
         }
+        count += l;
+        console.log(`${dlList.fileCount * 100 / l | 0}% (${count/dlList.fileCount})`);
     }
     console.log("ZIPを作成");
     const blob = await zip.generateAsync({type: 'blob'});
@@ -172,6 +177,4 @@ async function downloadZip(json) {
     a.remove();
     await setTimeout(() => window.URL.revokeObjectURL(url), 100);
 }
-
-await main();
 
