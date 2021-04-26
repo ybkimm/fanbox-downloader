@@ -164,7 +164,7 @@ async function downloadZip(json) {
             }, 100);
         }
         count += l;
-        console.log(`${dlList.fileCount * 100 / l | 0}% (${count/dlList.fileCount})`);
+        console.log(`${dlList.fileCount * 100 / l | 0}% (${count}/${dlList.fileCount})`);
     }
     console.log("ZIPを作成");
     const blob = await zip.generateAsync({type: 'blob'});
