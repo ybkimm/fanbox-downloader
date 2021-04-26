@@ -150,7 +150,7 @@ async function downloadZip(json) {
     dlList = JSON.parse(json);
     let zip = new JSZip();
     let root = zip.folder(dlList.id);
-    let count = 1;
+    let count = 0;
     console.log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
     for (const [title, items] of Object.entries(dlList.items)) {
         let folder = root.folder(title);
@@ -164,7 +164,7 @@ async function downloadZip(json) {
             }, 100);
         }
         count += l;
-        console.log(`${dlList.fileCount * 100 / l | 0}% (${count}/${dlList.fileCount})`);
+        console.log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
     }
     console.log("ZIPを作成");
     const blob = await zip.generateAsync({type: 'blob'});
