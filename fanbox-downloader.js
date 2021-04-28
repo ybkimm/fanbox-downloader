@@ -180,6 +180,23 @@ async function script(url) {
     });
 }
 
+// fetch
+async function download({url, filename}, limit) {
+    if (limit < 0) return null;
+    try {
+        const response = await fetch(url);
+        if(!response.ok) {
+            console.error(`DL失敗: ${filename}, ${url}`);
+            await sleep(1000);
+            return await download({url, filename}, limit - 1);
+        } else return response;
+    } catch (_) {
+        console.error(`通信エラー: ${filename}, ${url}`);
+        await sleep(1000);
+        return await download({url, filename}, limit - 1);
+    }
+}
+
 // ZIPでダウンロード
 async function downloadZip(json, progress, log) {
     dlList = JSON.parse(json);
@@ -196,20 +213,13 @@ async function downloadZip(json, progress, log) {
                 ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
                 let i = 1, l = post.items.length;
                 for (const dl of post.items) {
-                    log(`download ${dl.filename} (${i++}/${l})`)
-                    try {
-                        const response = await fetch(dl.url);
-                        ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
-                    } catch (_) {
-                        console.error(`DL失敗: ${dl.filename}, ${dl.url}`);
-                        await sleep(1000);
-                        try {
-                            const response = await fetch(dl.url);
-                            ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
-                        } catch (_) {
-                            console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
-                            log(`${dl.filename}のダウンロードに失敗`);
-                        }
+                    log(`download ${dl.filename} (${i++}/${l})`);
+                    const response = await download(dl, 1);
+                    if(response) {
+                        ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body});
+                    } else {
+                        console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
+                        log(`${dl.filename}のダウンロードに失敗`);
                     }
                     count++;
                     await setTimeout(() => progress(count * 100 / dlList.fileCount | 0), 0);
@@ -217,7 +227,7 @@ async function downloadZip(json, progress, log) {
                 }
                 log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
             }
-            ctrl.close()
+            ctrl.close();
         }
     });
 
