@@ -15,12 +15,12 @@ export async function main() {
         bt.type = "button";
         bt.value = "ok";
         let pr = document.createElement("progress");
-        pr.min = 0;
         pr.max = 100;
         pr.value = 0;
         let br = document.createElement("br");
         let tx = document.createElement("textarea");
         tx.value = "";
+        tx.cols = 40;
         tx.readOnly = true;
         document.body.appendChild(tb);
         document.body.appendChild(bt);
@@ -28,7 +28,10 @@ export async function main() {
         document.body.appendChild(br);
         document.body.appendChild(tx);
         const progress = (v) => pr.value = v;
-        const textLog = (t) => tx.value += `${t}\n`;
+        const textLog = (t) => {
+            tx.value += `${t}\n`;
+            tx.scrollTop = tx.scrollHeight;
+        };
         bt.onclick = function () {
             downloadZip(tb.value, progress, textLog).then(() => {
             });
@@ -180,19 +183,18 @@ async function downloadZip(json, progress, log) {
     const readableZipStream = new createWriter({
         async pull(ctrl) {
             let count = 0;
-            log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}\n`);
+            log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
             for (const [title, items] of Object.entries(dlList.items)) {
                 let i = 1, l = items.length;
                 for (const dl of items) {
                     log(`download ${dl.filename} (${i++}/${l})`)
                     const response = await fetch(dl.url);
                     ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
-                    await setTimeout(() => {
-                    }, 100);
+                    count++;
+                    await setTimeout(()=>progress(count * 100 / dlList.fileCount | 0), 0);
+                    await setTimeout(() => {}, 100);
                 }
-                count += l;
-                progress(count * 100 / dlList.fileCount | 0);
-                log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})\n`);
+                log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
             }
             ctrl.close()
         }
