@@ -100,8 +100,7 @@ async function getItemsById(postId) {
     for (; nextUrl != null; count++) {
         console.log(count + "回目");
         nextUrl = addByPostListUrl(nextUrl, isEco);
-        await setTimeout(() => {
-        }, 100);
+        await sleep(100);
     }
 }
 
@@ -166,6 +165,10 @@ function addUrl(title, url, filename) {
     dlList.posts[title].items.push({url, filename});
 }
 
+async function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // スクリプトの読み込み
 async function script(url) {
     return new Promise((resolve, reject) => {
@@ -194,12 +197,23 @@ async function downloadZip(json, progress, log) {
                 let i = 1, l = post.items.length;
                 for (const dl of post.items) {
                     log(`download ${dl.filename} (${i++}/${l})`)
-                    const response = await fetch(dl.url);
-                    ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
+                    try {
+                        const response = await fetch(dl.url);
+                        ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
+                    } catch (_) {
+                        console.error(`DL失敗: ${dl.filename}, ${dl.url}`);
+                        await sleep(1000);
+                        try {
+                            const response = await fetch(dl.url);
+                            ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
+                        } catch (_) {
+                            console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
+                            log(`${dl.filename}のダウンロードに失敗`);
+                        }
+                    }
                     count++;
                     await setTimeout(() => progress(count * 100 / dlList.fileCount | 0), 0);
-                    await setTimeout(() => {
-                    }, 100);
+                    await sleep(100);
                 }
                 log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
             }
