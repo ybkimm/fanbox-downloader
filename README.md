@@ -27,7 +27,7 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 ### fork後の変更点
 - 対応するURLを少し増やした
 - 投稿毎にフォルダ分けしたZIPでダウンロードするよ
+- 投稿情報とカバー画像の保存に対応
 - ダウンロードする投稿数が指定できるようになった
 - コードが長くなったから外部から読み込むようにした
-- 画像に加えて本文とかも保存する
 
