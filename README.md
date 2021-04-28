@@ -22,12 +22,12 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 [^2]: #cite-2
 
 ### 既知の問題
-- type: textに対応してない
+- type: textの投稿に対応してない
+- type: fileの本文表示に対応してない
 
 ### fork後の変更点
 - 対応するURLを少し増やした
 - 投稿毎にフォルダ分けしたZIPでダウンロードするよ
-- 投稿情報とカバー画像の保存に対応
-- ダウンロードする投稿数が指定できるようになった
+- 投稿情報を保存するようになった
 - コードが長くなったから外部から読み込むようにした
 
