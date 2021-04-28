@@ -122,22 +122,39 @@ function addByPostInfo(postInfo) {
     }
 
     // 情報保存と初期化
+    let txt = '';
+    switch (postInfo.type) {
+        case "image":
+            txt = postInfo.body.text;
+            break;
+        case "article":
+            txt = postInfo.body.blocks.filter(it => it.text !== undefined).map(it => it.text).join("\n");
+            break;
+        default:
+            txt = 'undefined';
+            break;
+    }
     const info = `id: ${postInfo.id}\ntitle: ${title}\nfee: ${postInfo.feeRequired}\n` +
         `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
-        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\nbody:\n${postInfo.body.text}\n`;
-    dlList.posts[title] = {info, items: []};
-    const cover = postInfo.coverImageUrl;
-    if (cover) {
-        addUrl(title, cover, `cover.${cover.split('.').pop()}`);
-    }
+        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n${txt}\n`;
+    const coverUrl = postInfo.coverImageUrl;
+    const cover = coverUrl ? {url: coverUrl, filename: `cover.${coverUrl.split('.').pop()}`} : undefined;
+    const html = (cover ? createImg(cover.filename) : '') + createTitle(title);
+    dlList.posts[title] = {info, items: [], html, cover};
 
     if (postInfo.type === "image") {
         const images = postInfo.body.images;
+        // html
+        dlList.posts[title].html += postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("\n") +
+            images.map((it, i) => createImg(`${title} ${i + 1}.${it.extension}`));
+
         for (let i = 0; i < images.length; i++) {
             addUrl(title, images[i].originalUrl, `${title} ${i + 1}.${images[i].extension}`);
         }
     } else if (postInfo.type === "file") {
         const files = postInfo.body.files;
+        // html
+        dlList.posts[title].html += 'not implemented';
         for (let i = 0; i < files.length; i++) {
             addUrl(title, files[i].url, `${title} ${files[i].name}.${files[i].extension}`);
         }
@@ -153,6 +170,27 @@ function addByPostInfo(postInfo) {
         for (let i = 0; i < fileMapKeys.length; i++) {
             addUrl(title, fileMap[fileMapKeys[i]].url, `${title} ${fileMap[fileMapKeys[i]].name}.${fileMap[fileMapKeys[i]].extension}`);
         }
+
+        // html
+        let cntImg = 0, cntFile = 0;
+        dlList.posts[title].html += postInfo.body.blocks.map(it => {
+            switch (it.type) {
+                case 'p':
+                    return `<span>${it.text}</span>`;
+                case 'header':
+                    return `<h2><span>${it.text}</span></h2>`;
+                case 'file':
+                    const fileName = `${title} ${fileMap[fileMapKeys[cntFile]].name}.${fileMap[fileMapKeys[cntFile]].extension}`;
+                    cntFile++;
+                    return `<a href="./${fileName}">${fileName}</a>`;
+                case 'image':
+                    const imgName = `${title} ${cntImg + 1}.${imageMap[imageMapKeys[cntImg]].extension}`;
+                    cntImg++;
+                    return createImg(imgName);
+                default:
+                    return 'not implemented';
+            }
+        }).join("\n");
     } else {
         console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
     }
@@ -185,7 +223,7 @@ async function download({url, filename}, limit) {
     if (limit < 0) return null;
     try {
         const response = await fetch(url);
-        if(!response.ok) {
+        if (!response.ok) {
             console.error(`DL失敗: ${filename}, ${url}`);
             await sleep(1000);
             return await download({url, filename}, limit - 1);
@@ -209,13 +247,30 @@ async function downloadZip(json, progress, log) {
         async pull(ctrl) {
             let count = 0;
             log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
+            // root htmlの作成
+            const rootBody = Object.entries(dlList.posts).map(([title, post]) => createCard(title, post.cover)).join('\n');
+            ctrl.enqueue(new File([createHtml(dlList.id, rootBody)], `${dlList.id}/index.html`));
+
             for (const [title, post] of Object.entries(dlList.posts)) {
                 ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
+                ctrl.enqueue(new File([createHtml(title, post.html)], `${dlList.id}/${title}/index.html`));
+                // カバー画像
+                if (post.cover) {
+                    log(`download ${post.cover.filename}`);
+                    const response = await download(post.cover, 1);
+                    if (response) {
+                        ctrl.enqueue({
+                            name: `${dlList.id}/${title}/${post.cover.filename}`,
+                            stream: () => response.body
+                        });
+                    }
+                }
+                // ファイル処理
                 let i = 1, l = post.items.length;
                 for (const dl of post.items) {
                     log(`download ${dl.filename} (${i++}/${l})`);
                     const response = await download(dl, 1);
-                    if(response) {
+                    if (response) {
                         ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body});
                     } else {
                         console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
@@ -233,7 +288,7 @@ async function downloadZip(json, progress, log) {
 
     // more optimized
     if (window.WritableStream && readableZipStream.pipeTo) {
-        return readableZipStream.pipeTo(fileStream).then(() => console.log('done writing'))
+        return readableZipStream.pipeTo(fileStream).then(() => console.log('done writing'));
     }
 
     // less optimized
@@ -241,4 +296,27 @@ async function downloadZip(json, progress, log) {
     const reader = readableZipStream.getReader();
     const pump = () => reader.read().then(res => res.done ? writer.close() : writer.write(res.value).then(pump));
     pump();
+}
+
+function createTitle(title) {
+    return `<h5>${title}</h5>\n`;
+}
+
+function createImg(filename) {
+    return `<a class="hl" href="./${filename}"><div class="post card">\n` +
+        `<img class="card-img-top" src="./${filename}"/>\n</div></a><br>\n`;
+}
+
+function createCard(title, cover) {
+    return `<a class="hl" href="./${title}/index.html"><div class="root card">\n` +
+        `<img class="card-img-top gray-card" ${cover ? `src="./${title}/${cover.filename}"` : ''}/>\n` +
+        `<div class="card-body"><h5 class="card-title">${title}</h5></div>\n</div></a><br>\n`;
+}
+
+function createHtml(title, body) {
+    return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
+        '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossOrigin="anonymous">\n' +
+        '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossOrigin="anonymous"></script>\n' +
+        '<style>div.main{width: 600px; float: none; margin: 0 auto} a.hl,a.hl:hover {color: inherit;text-decoration: none;}div.root{width: 400px} dive.post{width: 600px}div.card {float: none; margin: 0 auto;}img.gray-card {height: 210px;background-color: gray;}</style>\n' +
+        `</head>\n<body>\n<div class="main">\n${body}\n</div>\n</body></html>`;
 }
