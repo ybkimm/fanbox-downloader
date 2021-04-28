@@ -14,10 +14,23 @@ export async function main() {
         let bt = document.createElement("input");
         bt.type = "button";
         bt.value = "ok";
+        let pr = document.createElement("progress");
+        pr.min = 0;
+        pr.max = 100;
+        pr.value = 0;
+        let br = document.createElement("br");
+        let tx = document.createElement("textarea");
+        tx.value = "";
+        tx.readOnly = true;
         document.body.appendChild(tb);
         document.body.appendChild(bt);
+        document.body.appendChild(pr);
+        document.body.appendChild(br);
+        document.body.appendChild(tx);
+        const progress = (v) => pr.value = v;
+        const textLog = (t) => tx.value += `${t}\n`;
         bt.onclick = function () {
-            downloadZip(tb.value).then(() => {
+            downloadZip(tb.value, progress, textLog).then(() => {
             });
         };
         return;
@@ -157,29 +170,29 @@ async function script(url) {
 }
 
 // ZIPでダウンロード
-async function downloadZip(json) {
+async function downloadZip(json, progress, log) {
+    dlList = JSON.parse(json);
     await script('https://cdn.jsdelivr.net/npm/web-streams-polyfill@2.0.2/dist/ponyfill.min.js');
     await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/StreamSaver.js');
     await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/examples/zip-stream.js');
 
-    dlList = JSON.parse(json);
     const fileStream = streamSaver.createWriteStream(`${dlList.id}.zip`);
-
     const readableZipStream = new createWriter({
         async pull(ctrl) {
             let count = 0;
-            console.log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
+            log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}\n`);
             for (const [title, items] of Object.entries(dlList.items)) {
                 let i = 1, l = items.length;
                 for (const dl of items) {
-                    console.log(`download ${dl.filename} (${i++}/${l})`)
+                    log(`download ${dl.filename} (${i++}/${l})`)
                     const response = await fetch(dl.url);
                     ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
                     await setTimeout(() => {
                     }, 100);
                 }
                 count += l;
-                console.log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
+                progress(count * 100 / dlList.fileCount | 0);
+                log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})\n`);
             }
             ctrl.close()
         }
