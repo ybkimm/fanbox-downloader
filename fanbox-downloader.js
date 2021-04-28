@@ -5,6 +5,7 @@ let isIgnoreFree = false;
 // 投稿の情報を個別に取得しない（基本true）
 let isEco = true;
 
+// メイン
 export async function main() {
     if (window.location.origin === "https://downloads.fanbox.cc") {
         document.body.innerHTML = "";
@@ -98,7 +99,7 @@ function getPostInfoById(postId) {
 // postInfoオブジェクトからURLリストに追加する
 function addByPostInfo(postInfo) {
     const title = postInfo.title;
-    const date = postInfo.publishedDatetime;
+    // const date = postInfo.publishedDatetime;
     if (isIgnoreFree && (postInfo.feeRequired === 0)) {
         return;
     }
@@ -111,24 +112,24 @@ function addByPostInfo(postInfo) {
     if (postInfo.type === "image") {
         const images = postInfo.body.images;
         for (let i = 0; i < images.length; i++) {
-            addUrl(title, images[i].originalUrl, `${date} ${title} ${i + 1}.${images[i].extension}`);
+            addUrl(title, images[i].originalUrl, `${title} ${i + 1}.${images[i].extension}`);
         }
     } else if (postInfo.type === "file") {
         const files = postInfo.body.files;
         for (let i = 0; i < files.length; i++) {
-            addUrl(title, files[i].url, `${date} ${title} ${files[i].name}.${files[i].extension}`);
+            addUrl(title, files[i].url, `${title} ${files[i].name}.${files[i].extension}`);
         }
     } else if (postInfo.type === "article") {
         const imageMap = postInfo.body.imageMap;
         const imageMapKeys = Object.keys(imageMap);
         for (let i = 0; i < imageMapKeys.length; i++) {
-            addUrl(title, imageMap[imageMapKeys[i]].originalUrl, `${date} ${title} ${i + 1}.${imageMap[imageMapKeys[i]].extension}`);
+            addUrl(title, imageMap[imageMapKeys[i]].originalUrl, `${title} ${i + 1}.${imageMap[imageMapKeys[i]].extension}`);
         }
 
         const fileMap = postInfo.body.fileMap;
         const fileMapKeys = Object.keys(fileMap);
         for (let i = 0; i < fileMapKeys.length; i++) {
-            addUrl(title, fileMap[fileMapKeys[i]].url, `${date} ${title} ${fileMap[fileMapKeys[i]].name}.${fileMap[fileMapKeys[i]].extension}`);
+            addUrl(title, fileMap[fileMapKeys[i]].url, `${title} ${fileMap[fileMapKeys[i]].name}.${fileMap[fileMapKeys[i]].extension}`);
         }
     } else {
         console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
@@ -144,37 +145,54 @@ function addUrl(title, url, filename) {
     dlList.items[title].push(dl);
 }
 
-// ZIPでダウンロード
-async function downloadZip(json) {
-    await import("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js");
-    dlList = JSON.parse(json);
-    let zip = new JSZip();
-    let root = zip.folder(dlList.id);
-    let count = 0;
-    console.log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
-    for (const [title, items] of Object.entries(dlList.items)) {
-        let folder = root.folder(title);
-        let i = 1, l = items.length;
-        for (const dl of items) {
-            console.log(`download ${dl.filename} (${i++}/${l})`)
-            const response = await fetch(dl.url);
-            const blob = await response.blob();
-            folder.file(dl.filename, blob)
-            await setTimeout(() => {
-            }, 100);
-        }
-        count += l;
-        console.log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
-    }
-    console.log("ZIPを作成");
-    const blob = await zip.generateAsync({type: 'blob'});
-    const url = URL.createObjectURL(blob);
-    let a = document.createElement("a");
-    a.href = url;
-    a.download = `${dlList.id}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    await setTimeout(() => window.URL.revokeObjectURL(url), 100);
+// スクリプトの読み込み
+async function script(url) {
+    return new Promise((resolve, reject) => {
+        let script = document.createElement("script");
+        script.src = url;
+        script.onload = () => resolve(script);
+        script.onerror = (e) => reject(e);
+        document.head.appendChild(script);
+    });
 }
 
+// ZIPでダウンロード
+async function downloadZip(json) {
+    await script('https://cdn.jsdelivr.net/npm/web-streams-polyfill@2.0.2/dist/ponyfill.min.js');
+    await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/StreamSaver.js');
+    await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/examples/zip-stream.js');
+
+    dlList = JSON.parse(json);
+    const fileStream = streamSaver.createWriteStream(`${dlList.id}.zip`);
+
+    const readableZipStream = new createWriter({
+        async pull(ctrl) {
+            let count = 0;
+            console.log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
+            for (const [title, items] of Object.entries(dlList.items)) {
+                let i = 1, l = items.length;
+                for (const dl of items) {
+                    console.log(`download ${dl.filename} (${i++}/${l})`)
+                    const response = await fetch(dl.url);
+                    ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
+                    await setTimeout(() => {
+                    }, 100);
+                }
+                count += l;
+                console.log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
+            }
+            ctrl.close()
+        }
+    });
+
+    // more optimized
+    if (window.WritableStream && readableZipStream.pipeTo) {
+        return readableZipStream.pipeTo(fileStream).then(() => console.log('done writing'))
+    }
+
+    // less optimized
+    const writer = fileStream.getWriter();
+    const reader = readableZipStream.getReader();
+    const pump = () => reader.read().then(res => res.done ? writer.close() : writer.write(res.value).then(pump));
+    pump();
+}
