@@ -5,18 +5,11 @@ pixiv FANBOXの投稿を一括ダウンロード → 投稿毎にフォルダ分
 
 ### 使い方
 1. ブックマークレットをブックマークに追加する
-
-↓ブックマークレット
-```
-javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main());
-```
-
-2. FANBOXのクリエイターページか投稿ページで実行する (○○○.fanbox.cc か fanbox.cc/@○○○ から始まるURLのページ)
-
+2. FANBOXのクリエイターページか投稿ページで実行する[^1]
 3. URLのリストがjsonでクリップボードに吐き出される
-4. ダウンロードページ（画像だと`オリジナルサイズで表示`のページ download.fanbox.cc から始まるURL）でまた実行
-4. 入力ボックスに3のjsonをコピペ → okボタンを押す
-5. なんかダウンロードはじまる
+4. ダウンロードページ[^2]でまた実行
+5. 入力ボックスに3のjsonをコピペ → okボタンを押す
+6. なんかダウンロードはじまる[^3]
 
 ### 既知の問題
 - type: textに対応してない
@@ -29,4 +22,15 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 - 投稿毎にフォルダ分けしたZIPでダウンロードするよ
 - コードが長くなったから外部から読み込むようにした
 
+↓ブックマークレット
+```
+javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main());
+```
 
+* <a name="cite-1"></a>\[^1]: `○○○.fanbox.cc`か`fanbox.cc/@○○○`から始まるURLのページ
+* <a name="cite-2"></a>\[^2]: `download.fanbox.cc`から始まるURLのページ(画像だと`オリジナルサイズで表示`)
+* <a name="cite-3"></a>\[^3]: ダウンロード状況はコンソールから確認しよう
+
+[^1]: #cite-1
+[^2]: #cite-2
+[^3]: #cite-3
