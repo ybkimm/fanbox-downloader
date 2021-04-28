@@ -1,4 +1,4 @@
-let dlList = {items: {}, postCount: 0, fileCount: 0, id: 'undefined'};
+let dlList = {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
 let limit = 0;
 let isIgnoreFree = false;
 
@@ -93,9 +93,7 @@ function fetchUrl(url) {
 
 // 投稿IDからitemsを得る
 async function getItemsById(postId) {
-    dlList.items = {};
     isIgnoreFree = confirm("無料コンテンツを省く？");
-
     limit = prompt("取得制限数を入力 キャンセルで全て取得");
     let count = 1, nextUrl;
     nextUrl = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
@@ -115,7 +113,6 @@ function getPostInfoById(postId) {
 // postInfoオブジェクトからURLリストに追加する
 function addByPostInfo(postInfo) {
     const title = postInfo.title;
-    // const date = postInfo.publishedDatetime;
     if (isIgnoreFree && (postInfo.feeRequired === 0)) {
         return;
     }
@@ -123,6 +120,16 @@ function addByPostInfo(postInfo) {
     if (postInfo.body == null) {
         console.log(`取得できませんでした(支援がたりない？)\nfeeRequired: ${postInfo.feeRequired}@${postInfo.id}`);
         return;
+    }
+
+    // 情報保存と初期化
+    const info = `id: ${postInfo.id}\ntitle: ${title}\nfee: ${postInfo.feeRequired}\n` +
+        `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
+        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\nbody:\n${postInfo.body.text}\n`;
+    dlList.posts[title] = {info, items: []};
+    const cover = postInfo.coverImageUrl;
+    if (cover) {
+        addUrl(title, cover, `cover.${cover.split('.').pop()}`);
     }
 
     if (postInfo.type === "image") {
@@ -155,10 +162,8 @@ function addByPostInfo(postInfo) {
 
 // URLリストに追加
 function addUrl(title, url, filename) {
-    const dl = {url: url, filename: filename};
     dlList.fileCount++;
-    if (!dlList.items[title]) dlList.items[title] = [];
-    dlList.items[title].push(dl);
+    dlList.posts[title].items.push({url, filename});
 }
 
 // スクリプトの読み込み
@@ -184,15 +189,17 @@ async function downloadZip(json, progress, log) {
         async pull(ctrl) {
             let count = 0;
             log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
-            for (const [title, items] of Object.entries(dlList.items)) {
-                let i = 1, l = items.length;
-                for (const dl of items) {
+            for (const [title, post] of Object.entries(dlList.posts)) {
+                ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
+                let i = 1, l = post.items.length;
+                for (const dl of post.items) {
                     log(`download ${dl.filename} (${i++}/${l})`)
                     const response = await fetch(dl.url);
                     ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body})
                     count++;
-                    await setTimeout(()=>progress(count * 100 / dlList.fileCount | 0), 0);
-                    await setTimeout(() => {}, 100);
+                    await setTimeout(() => progress(count * 100 / dlList.fileCount | 0), 0);
+                    await setTimeout(() => {
+                    }, 100);
                 }
                 log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
             }
