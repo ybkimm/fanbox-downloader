@@ -1,13 +1,21 @@
 # fanbox-downloader
-pixiv FANBOXの投稿を自動でダウンロードする
+pixiv FANBOXの投稿を一括ダウンロード → 投稿毎にフォルダ分けして保存する
 
 自分用、性欲駆動開発
 
 ### 使い方
-1. ブックマークに追加する
-2. FANBOXのクリエイターページか投稿ページで実行する
+1. ブックマークレットをブックマークに追加する
+
+↓ブックマークレット
+```
+javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main());
+```
+
+2. FANBOXのクリエイターページか投稿ページで実行する (○○○.fanbox.cc か fanbox.cc/@○○○ から始まるURLのページ)
+
 3. URLのリストがjsonでクリップボードに吐き出される
-4. download.fanbox.ccでまた実行、jsonをコピペ
+4. ダウンロードページ（画像だと`オリジナルサイズで表示`のページ download.fanbox.cc から始まるURL）でまた実行
+4. 入力ボックスに3のjsonをコピペ → okボタンを押す
 5. なんかダウンロードはじまる
 
 ### 既知の問題
@@ -18,10 +26,7 @@ pixiv FANBOXの投稿を自動でダウンロードする
 ### fork後の変更点
 - 対応するURLを少し増やした
 - ダウンロードする投稿数が指定できるようになった
-- 投稿毎にフォルダ分けしたZIPでダウンロードするよ（ZIP化する分少し時間がかかる←デメリット）
+- 投稿毎にフォルダ分けしたZIPでダウンロードするよ
 - コードが長くなったから外部から読み込むようにした
 
-↓ブックマークレット
-```
-javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main());
-```
+
