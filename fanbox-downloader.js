@@ -182,7 +182,7 @@ function addByPostInfo(postInfo) {
                 case 'file':
                     const fileName = `${title} ${fileMap[fileMapKeys[cntFile]].name}.${fileMap[fileMapKeys[cntFile]].extension}`;
                     cntFile++;
-                    return `<a href="./${fileName}">${fileName}</a>`;
+                    return `<span><a href="./${fileName}">${fileName}</a></span>`;
                 case 'image':
                     const imgName = `${title} ${cntImg + 1}.${imageMap[imageMapKeys[cntImg]].extension}`;
                     cntImg++;
@@ -190,7 +190,7 @@ function addByPostInfo(postInfo) {
                 default:
                     return 'not implemented';
             }
-        }).join("\n");
+        }).join("<br>\n");
     } else {
         console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
     }
