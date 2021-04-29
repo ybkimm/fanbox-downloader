@@ -122,21 +122,9 @@ function addByPostInfo(postInfo) {
     }
 
     // 情報保存と初期化
-    let txt = '';
-    switch (postInfo.type) {
-        case "image":
-            txt = postInfo.body.text;
-            break;
-        case "article":
-            txt = postInfo.body.blocks.filter(it => it.text !== undefined).map(it => it.text).join("\n");
-            break;
-        default:
-            txt = 'undefined';
-            break;
-    }
     const info = `id: ${postInfo.id}\ntitle: ${title}\nfee: ${postInfo.feeRequired}\n` +
         `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
-        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n${txt}\n`;
+        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n`;
     const coverUrl = postInfo.coverImageUrl;
     const cover = coverUrl ? {url: coverUrl, filename: `cover.${coverUrl.split('.').pop()}`} : undefined;
     const html = (cover ? createImg(cover.filename) : '') + createTitle(title);
@@ -145,8 +133,9 @@ function addByPostInfo(postInfo) {
     if (postInfo.type === "image") {
         const images = postInfo.body.images;
         // html
-        dlList.posts[title].html += postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("\n") +
+        dlList.posts[title].html += postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n") +
             images.map((it, i) => createImg(`${title} ${i + 1}.${it.extension}`));
+        dlList.posts[title].info += `${postInfo.body.text}\n`;
 
         for (let i = 0; i < images.length; i++) {
             addUrl(title, images[i].originalUrl, `${title} ${i + 1}.${images[i].extension}`);
@@ -155,18 +144,22 @@ function addByPostInfo(postInfo) {
         const files = postInfo.body.files;
         // html
         dlList.posts[title].html += 'not implemented';
+        dlList.posts[title].info += `not implemented\n`;
         for (let i = 0; i < files.length; i++) {
             addUrl(title, files[i].url, `${title} ${files[i].name}.${files[i].extension}`);
         }
     } else if (postInfo.type === "article") {
+        const imageOrder = postInfo.body.blocks.filter(it => it.type === 'image').map(it => it.imageId);
+        const imageKeyOrder = (n) => imageOrder.indexOf(n) ?? imageOrder.length;
         const imageMap = postInfo.body.imageMap;
-        const imageMapKeys = Object.keys(imageMap);
+        const imageMapKeys = Object.keys(imageMap).sort((a, b) => imageKeyOrder(a) - imageKeyOrder(b));
         for (let i = 0; i < imageMapKeys.length; i++) {
             addUrl(title, imageMap[imageMapKeys[i]].originalUrl, `${title} ${i + 1}.${imageMap[imageMapKeys[i]].extension}`);
         }
-
+        const fileOrder = postInfo.body.blocks.filter(it => it.type === 'file').map(it => it.fileId);
+        const fileKeyOrder = (s) => fileOrder.indexOf(s) ?? fileOrder.length;
         const fileMap = postInfo.body.fileMap;
-        const fileMapKeys = Object.keys(fileMap);
+        const fileMapKeys = Object.keys(fileMap).sort((a, b) => fileKeyOrder(a) - fileKeyOrder(b));
         for (let i = 0; i < fileMapKeys.length; i++) {
             addUrl(title, fileMap[fileMapKeys[i]].url, `${title} ${fileMap[fileMapKeys[i]].name}.${fileMap[fileMapKeys[i]].extension}`);
         }
@@ -191,6 +184,7 @@ function addByPostInfo(postInfo) {
                     return 'not implemented';
             }
         }).join("<br>\n");
+        dlList.posts[title].info += postInfo.body.blocks.filter(it => it.text !== undefined).map(it => it.text).join("\n");
     } else {
         console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
     }
