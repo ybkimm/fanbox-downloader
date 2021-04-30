@@ -85,28 +85,28 @@ function addByPostInfo(postInfo) {
         console.log(`取得できませんでした(支援がたりない？)\nfeeRequired: ${postInfo.feeRequired}@${postInfo.id}`);
         return;
     }
-    initDlList(postInfo);
+    const postObj = createPostObj(postInfo);
     const title = postInfo.title;
     if (postInfo.type === "image") {
         const images = postInfo.body.images;
         for (let i = 0; i < images.length; i++) {
-            addUrl(title, images[i].originalUrl, getImageName(images[i], title, i));
+            addUrl(postObj, images[i].originalUrl, getImageName(images[i], title, i));
         }
     }
     else if (postInfo.type === "file") {
         const files = postInfo.body.files;
         for (let i = 0; i < files.length; i++) {
-            addUrl(title, files[i].url, getFileName(files[i], title, i));
+            addUrl(postObj, files[i].url, getFileName(files[i], title, i));
         }
     }
     else if (postInfo.type === "article") {
         const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks);
         for (let i = 0; i < images.length; i++) {
-            addUrl(title, images[i].originalUrl, getImageName(images[i], title, i));
+            addUrl(postObj, images[i].originalUrl, getImageName(images[i], title, i));
         }
         const files = convertFileMap(postInfo.body.fileMap, postInfo.body.blocks);
         for (let i = 0; i < files.length; i++) {
-            addUrl(title, files[i].url, getFileName(files[i], title, i));
+            addUrl(postObj, files[i].url, getFileName(files[i], title, i));
         }
     }
     else {
@@ -115,16 +115,25 @@ function addByPostInfo(postInfo) {
     if (limit != null)
         limit--;
 }
-function initDlList(postInfo) {
+function createPostObj(postInfo) {
     const info = createInfoFromPostInfo(postInfo);
     const coverUrl = postInfo.coverImageUrl;
     const cover = coverUrl ? { url: coverUrl, filename: `cover.${coverUrl.split('.').pop()}` } : undefined;
     const html = createPostHtmlFromPostInfo(postInfo, cover === null || cover === void 0 ? void 0 : cover.filename);
-    dlList.posts[postInfo.title] = { info, items: [], html, cover };
+    const postObj = { info, items: [], html, cover };
+    let title = postInfo.title;
+    if (dlList.posts[title]) {
+        let i = 2;
+        while (dlList.posts[`${title}_${i}`])
+            i++;
+        title = `${title}_${i}`;
+    }
+    dlList.posts[title] = postObj;
+    return postObj;
 }
-function addUrl(title, url, filename) {
+function addUrl(postObj, url, filename) {
     dlList.fileCount++;
-    dlList.posts[title].items.push({ url, filename });
+    postObj.items.push({ url, filename });
 }
 function convertImageMap(imageMap, blocks) {
     const imageOrder = blocks.filter((it) => it.type === "image").map(it => it.imageId);
@@ -179,6 +188,8 @@ async function downloadZip(json, progress, log) {
             log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
             ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${dlList.id}/index.html`));
             for (const [title, post] of Object.entries(dlList.posts)) {
+                if (!post)
+                    continue;
                 ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
                 ctrl.enqueue(new File([createHtml(title, post.html)], `${dlList.id}/${title}/index.html`));
                 if (post.cover) {

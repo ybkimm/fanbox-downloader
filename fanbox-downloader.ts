@@ -1,9 +1,5 @@
-let dlList: {
-    posts: Record<string, Readonly<{ info: string, items: DlInfo[], html: string, cover?: DlInfo }>>,
-    postCount: number,
-    fileCount: number,
-    id: string,
-} = {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
+let dlList: { posts: Record<string, PostObj>, postCount: number, fileCount: number, id: string } =
+    {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
 let limit: number | null = 0;
 let isIgnoreFree = false;
 
@@ -121,28 +117,27 @@ function addByPostInfo(postInfo: PostInfo | undefined) {
         console.log(`取得できませんでした(支援がたりない？)\nfeeRequired: ${postInfo.feeRequired}@${postInfo.id}`);
         return;
     }
-
-    initDlList(postInfo);
+    const postObj = createPostObj(postInfo);
     const title = postInfo.title;
 
     if (postInfo.type === "image") {
         const images = postInfo.body.images;
         for (let i = 0; i < images.length; i++) {
-            addUrl(title, images[i].originalUrl, getImageName(images[i], title, i));
+            addUrl(postObj, images[i].originalUrl, getImageName(images[i], title, i));
         }
     } else if (postInfo.type === "file") {
         const files = postInfo.body.files;
         for (let i = 0; i < files.length; i++) {
-            addUrl(title, files[i].url, getFileName(files[i], title, i));
+            addUrl(postObj, files[i].url, getFileName(files[i], title, i));
         }
     } else if (postInfo.type === "article") {
         const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks);
         for (let i = 0; i < images.length; i++) {
-            addUrl(title, images[i].originalUrl, getImageName(images[i], title, i));
+            addUrl(postObj, images[i].originalUrl, getImageName(images[i], title, i));
         }
         const files = convertFileMap(postInfo.body.fileMap, postInfo.body.blocks);
         for (let i = 0; i < files.length; i++) {
-            addUrl(title, files[i].url, getFileName(files[i], title, i));
+            addUrl(postObj, files[i].url, getFileName(files[i], title, i));
         }
     } else {
         console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
@@ -153,24 +148,33 @@ function addByPostInfo(postInfo: PostInfo | undefined) {
 /**
  * dlListの投稿情報を初期化する
  * @param postInfo 投稿情報オブジェクト
+ * @return 投稿オブジェクト
  */
-function initDlList(postInfo: PostInfo): void {
+function createPostObj(postInfo: PostInfo): PostObj {
     const info = createInfoFromPostInfo(postInfo);
     const coverUrl = postInfo.coverImageUrl;
     const cover = coverUrl ? {url: coverUrl, filename: `cover.${coverUrl.split('.').pop()}`} : undefined;
     const html = createPostHtmlFromPostInfo(postInfo, cover?.filename);
-    dlList.posts[postInfo.title] = {info, items: [], html, cover};
+    const postObj = {info, items: [], html, cover};
+    let title = postInfo.title;
+    if (dlList.posts[title]) {
+        let i = 2;
+        while (dlList.posts[`${title}_${i}`]) i++;
+        title = `${title}_${i}`;
+    }
+    dlList.posts[title] = postObj;
+    return postObj;
 }
 
 /**
  * URLリストに追加
- * @param title 投稿のタイトル
+ * @param postObj 投稿オブジェクト
  * @param url
  * @param filename
  */
-function addUrl(title: string, url: string, filename: string) {
+function addUrl(postObj: PostObj, url: string, filename: string) {
     dlList.fileCount++;
-    dlList.posts[title].items.push({url, filename});
+    postObj.items.push({url, filename});
 }
 
 function convertImageMap(imageMap: Record<string, ImageInfo>, blocks: Block[]): ImageInfo[] {
@@ -252,6 +256,7 @@ async function downloadZip(json: string, progress: (n: number) => void, log: (s:
             ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${dlList.id}/index.html`));
 
             for (const [title, post] of Object.entries(dlList.posts)) {
+                if (!post) continue;
                 // 投稿情報+html
                 ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
                 ctrl.enqueue(new File([createHtml(title, post.html)], `${dlList.id}/${title}/index.html`));
@@ -324,56 +329,56 @@ function createDownloadUI() {
     bodyDiv.style.justifyContent = "center";
     bodyDiv.style.flexDirection = "column";
     bodyDiv.style.height = "100%";
-     let inputDiv = document.createElement("div");
-     inputDiv.className = "input-group mb-2";
-     inputDiv.style.width = "400px";
-      let input = document.createElement("input");
-      input.type="text"
-      input.className="form-control"
-      input.placeholder="ここにJSONを貼り付け"
-      inputDiv.appendChild(input);
-      let buttonDiv = document.createElement("div");
-      buttonDiv.className = "input-group-append";
-       let button = document.createElement("button");
-       button.className = "btn btn-outline-secondary btn-labeled";
-       button.type="button";
-       button.innerText = "Download";
-      buttonDiv.appendChild(button);
-     inputDiv.appendChild(buttonDiv);
+    let inputDiv = document.createElement("div");
+    inputDiv.className = "input-group mb-2";
+    inputDiv.style.width = "400px";
+    let input = document.createElement("input");
+    input.type = "text"
+    input.className = "form-control"
+    input.placeholder = "ここにJSONを貼り付け"
+    inputDiv.appendChild(input);
+    let buttonDiv = document.createElement("div");
+    buttonDiv.className = "input-group-append";
+    let button = document.createElement("button");
+    button.className = "btn btn-outline-secondary btn-labeled";
+    button.type = "button";
+    button.innerText = "Download";
+    buttonDiv.appendChild(button);
+    inputDiv.appendChild(buttonDiv);
     bodyDiv.appendChild(inputDiv);
-     let progressDiv = document.createElement("div");
-     progressDiv.className = "progress mb-3";
-     progressDiv.style.width = "400px";
-      let progress = document.createElement("div");
-      progress.className = "progress-bar";
-      // @ts-ignore
-      progress["role"] = "progressbar";
-      // @ts-ignore
-      progress["aria-valuemin"] = "0";
-      // @ts-ignore
-      progress["aria-valuemax"] = "100";
-      // @ts-ignore
-      progress["aria-valuenow"] = "0";
-      progress.style.width = "0%"
-      progress.innerText = "0%";
-      const setProgress = (n: number) => {
-          // @ts-ignore
-          progress["aria-valuenow"] = `${n}`;
-          progress.style.width = `${n}%`;
-          progress.innerText = `${n}%`;
-      };
-     progressDiv.appendChild(progress);
+    let progressDiv = document.createElement("div");
+    progressDiv.className = "progress mb-3";
+    progressDiv.style.width = "400px";
+    let progress = document.createElement("div");
+    progress.className = "progress-bar";
+    // @ts-ignore
+    progress["role"] = "progressbar";
+    // @ts-ignore
+    progress["aria-valuemin"] = "0";
+    // @ts-ignore
+    progress["aria-valuemax"] = "100";
+    // @ts-ignore
+    progress["aria-valuenow"] = "0";
+    progress.style.width = "0%"
+    progress.innerText = "0%";
+    const setProgress = (n: number) => {
+        // @ts-ignore
+        progress["aria-valuenow"] = `${n}`;
+        progress.style.width = `${n}%`;
+        progress.innerText = `${n}%`;
+    };
+    progressDiv.appendChild(progress);
     bodyDiv.appendChild(progressDiv);
-     let textarea = document.createElement("textarea");
-     textarea.className = "form-control";
-     textarea.readOnly = true;
-     textarea.style.resize = "both";
-     textarea.style.width = "500px";
-     textarea.style.height = "80px";
-     const textLog = (t: string) => {
-         textarea.value += `${t}\n`;
-         textarea.scrollTop = textarea.scrollHeight;
-     };
+    let textarea = document.createElement("textarea");
+    textarea.className = "form-control";
+    textarea.readOnly = true;
+    textarea.style.resize = "both";
+    textarea.style.width = "500px";
+    textarea.style.height = "80px";
+    const textLog = (t: string) => {
+        textarea.value += `${t}\n`;
+        textarea.scrollTop = textarea.scrollHeight;
+    };
     bodyDiv.appendChild(textarea);
     document.body.appendChild(bodyDiv);
 
@@ -492,7 +497,7 @@ function createHtml(title: string, body: string): string {
         '</body></html>';
 }
 
-
+type PostObj = Readonly<{ info: string, items: DlInfo[], html: string, cover?: DlInfo }>;
 type PostInfo = {
     title: string,
     feeRequired: number,
