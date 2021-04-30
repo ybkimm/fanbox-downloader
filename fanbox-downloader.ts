@@ -19,7 +19,7 @@ export async function main() {
         createDownloadUI();
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
-        const userId = window.location.href.match(/fanbox.cc\/@(.*)/)?.[1];
+        const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
         const postId = window.location.href.match(/fanbox.cc\/@.*\/posts\/(\d*)/)?.[1];
         await searchBy(userId, postId);
     } else if (window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) {
