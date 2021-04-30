@@ -11,7 +11,7 @@ export async function main() {
         return;
     }
     else if (window.location.origin === "https://www.fanbox.cc") {
-        const userId = (_a = window.location.href.match(/fanbox.cc\/@(.*)/)) === null || _a === void 0 ? void 0 : _a[1];
+        const userId = (_a = window.location.href.match(/fanbox.cc\/@([^\/]*)/)) === null || _a === void 0 ? void 0 : _a[1];
         const postId = (_b = window.location.href.match(/fanbox.cc\/@.*\/posts\/(\d*)/)) === null || _b === void 0 ? void 0 : _b[1];
         await searchBy(userId, postId);
     }
