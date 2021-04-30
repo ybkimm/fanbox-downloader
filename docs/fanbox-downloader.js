@@ -24,40 +24,10 @@ export async function main() {
         alert(`ここどこですか(${window.location.href})`);
         return;
     }
-    console.log(dlList);
     const json = JSON.stringify(dlList);
+    console.log(json);
     await navigator.clipboard.writeText(json);
     alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
-}
-function createDownloadUI() {
-    document.body.innerHTML = "";
-    let tb = document.createElement("input");
-    tb.type = "text";
-    let bt = document.createElement("input");
-    bt.type = "button";
-    bt.value = "ok";
-    let pr = document.createElement("progress");
-    pr.max = 100;
-    pr.value = 0;
-    let br = document.createElement("br");
-    let tx = document.createElement("textarea");
-    tx.value = "";
-    tx.cols = 40;
-    tx.readOnly = true;
-    document.body.appendChild(tb);
-    document.body.appendChild(bt);
-    document.body.appendChild(pr);
-    document.body.appendChild(br);
-    document.body.appendChild(tx);
-    const progress = (v) => pr.value = v;
-    const textLog = (t) => {
-        tx.value += `${t}\n`;
-        tx.scrollTop = tx.scrollHeight;
-    };
-    bt.onclick = function () {
-        downloadZip(tb.value, progress, textLog).then(() => {
-        });
-    };
 }
 async function searchBy(userId, postId) {
     if (!userId) {
@@ -249,6 +219,83 @@ async function downloadZip(json, progress, log) {
     const pump = () => reader.read().then((res) => res.done ? writer.close() : writer.write(res.value).then(pump));
     await pump();
 }
+function createDownloadUI() {
+    document.head.innerHTML = "";
+    document.body.innerHTML = "";
+    document.getElementsByTagName("html")[0].style.height = "100%";
+    document.body.style.height = "100%";
+    document.body.style.margin = "0";
+    document.title = "fanbox-downloader";
+    let bootLink = document.createElement("link");
+    bootLink.href = "https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css";
+    bootLink.rel = "stylesheet";
+    bootLink.integrity = "sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1";
+    bootLink.crossOrigin = "anonymous";
+    document.head.appendChild(bootLink);
+    let bodyDiv = document.createElement("div");
+    bodyDiv.style.display = "flex";
+    bodyDiv.style.alignItems = "center";
+    bodyDiv.style.justifyContent = "center";
+    bodyDiv.style.flexDirection = "column";
+    bodyDiv.style.height = "100%";
+    let inputDiv = document.createElement("div");
+    inputDiv.className = "input-group mb-2";
+    inputDiv.style.width = "400px";
+    let input = document.createElement("input");
+    input.type = "text";
+    input.className = "form-control";
+    input.placeholder = "ここにJSONを貼り付け";
+    inputDiv.appendChild(input);
+    let buttonDiv = document.createElement("div");
+    buttonDiv.className = "input-group-append";
+    let button = document.createElement("button");
+    button.className = "btn btn-outline-secondary btn-labeled";
+    button.type = "button";
+    button.innerText = "Download";
+    buttonDiv.appendChild(button);
+    inputDiv.appendChild(buttonDiv);
+    bodyDiv.appendChild(inputDiv);
+    let progressDiv = document.createElement("div");
+    progressDiv.className = "progress mb-3";
+    progressDiv.style.width = "400px";
+    let progress = document.createElement("div");
+    progress.className = "progress-bar";
+    progress["role"] = "progressbar";
+    progress["aria-valuemin"] = "0";
+    progress["aria-valuemax"] = "100";
+    progress["aria-valuenow"] = "0";
+    progress.style.width = "0%";
+    progress.innerText = "0%";
+    const setProgress = (n) => {
+        progress["aria-valuenow"] = `${n}`;
+        progress.style.width = `${n}%`;
+        progress.innerText = `${n}%`;
+    };
+    progressDiv.appendChild(progress);
+    bodyDiv.appendChild(progressDiv);
+    let textarea = document.createElement("textarea");
+    textarea.className = "form-control";
+    textarea.readOnly = true;
+    textarea.style.resize = "both";
+    textarea.style.width = "500px";
+    textarea.style.height = "80px";
+    const textLog = (t) => {
+        textarea.value += `${t}\n`;
+        textarea.scrollTop = textarea.scrollHeight;
+    };
+    bodyDiv.appendChild(textarea);
+    document.body.appendChild(bodyDiv);
+    let bootScript = document.createElement("script");
+    bootScript.src = "https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js";
+    bootScript.integrity = "sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW";
+    bootScript.crossOrigin = "anonymous";
+    document.body.appendChild(bootScript);
+    button.onclick = function () {
+        button.disabled = true;
+        downloadZip(input.value, setProgress, textLog).then(() => {
+        });
+    };
+}
 function createInfoFromPostInfo(postInfo) {
     const txt = (() => {
         switch (postInfo.type) {
@@ -327,7 +374,8 @@ function createFile(filename) {
 function createHtml(title, body) {
     return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
         '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossOrigin="anonymous">\n' +
-        '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossOrigin="anonymous"></script>\n' +
         '<style>div.main{width: 600px; float: none; margin: 0 auto} a.hl,a.hl:hover {color: inherit;text-decoration: none;}div.root{width: 400px} div.post{width: 600px}div.card {float: none; margin: 0 auto;}img.gray-card {height: 210px;background-color: gray;}</style>\n' +
-        `</head>\n<body>\n<div class="main">\n${body}\n</div>\n</body></html>`;
+        `</head>\n<body>\n<div class="main">\n${body}\n</div>\n` +
+        '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossOrigin="anonymous"></script>\n' +
+        '</body></html>';
 }
