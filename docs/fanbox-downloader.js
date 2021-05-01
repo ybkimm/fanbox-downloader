@@ -157,6 +157,11 @@ function convertFileMap(fileMap, blocks) {
     const fileKeyOrder = (s) => { var _a; return (_a = fileOrder.indexOf(s)) !== null && _a !== void 0 ? _a : fileOrder.length; };
     return Object.keys(fileMap).sort((a, b) => fileKeyOrder(a) - fileKeyOrder(b)).map(it => fileMap[it]);
 }
+function convertEmbedMap(embedMap, blocks) {
+    const embedOrder = blocks.filter((it) => it.type === "embed").map(it => it.embedId);
+    const embedKeyOrder = (s) => { var _a; return (_a = embedOrder.indexOf(s)) !== null && _a !== void 0 ? _a : embedOrder.length; };
+    return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
+}
 async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -344,17 +349,18 @@ function createInfoFromPostInfo(postInfo) {
 function createPostHtmlFromPostInfo(postInfo, coverFilename) {
     const header = (coverFilename ? createImg(coverFilename) : '') + createTitle(postInfo.title);
     const body = (() => {
-        var _a;
         switch (postInfo.type) {
             case "image":
                 return postInfo.body.images.map((it, i) => createImg(getImageName(it, postInfo.title, i))).join("<br>\n") +
                     postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             case "file":
-                return postInfo.body.files.map((it, i) => createFile(getFileName(it, postInfo.title, i))).join("<br>\n") + ((_a = postInfo.body.text) === null || _a === void 0 ? void 0 : _a.split("\n").map(it => `<span>${it}</span>`).join("<br>\n"));
+                return postInfo.body.files.map((it, i) => createFile(getFileName(it, postInfo.title, i))).join("<br>\n") +
+                    postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             case "article":
-                let cntImg = 0, cntFile = 0;
+                let cntImg = 0, cntFile = 0, cntEmbed = 0;
                 const files = convertFileMap(postInfo.body.fileMap, postInfo.body.blocks);
                 const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks);
+                const embeds = convertEmbedMap(postInfo.body.embedMap, postInfo.body.blocks);
                 return postInfo.body.blocks.map(it => {
                     switch (it.type) {
                         case 'p':
@@ -369,10 +375,30 @@ function createPostHtmlFromPostInfo(postInfo, coverFilename) {
                             const imgName = getImageName(images[cntImg], postInfo.title, cntImg);
                             cntImg++;
                             return createImg(imgName);
+                        case "embed":
+                            return `<span>${embeds[cntEmbed++]}</span>`;
                         default:
                             return console.error(`unknown block type: ${it.type}`);
                     }
                 }).join("<br>\n");
+            case "text":
+                if (postInfo.body.text) {
+                    return postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+                }
+                else if (postInfo.body.blocks) {
+                    return postInfo.body.blocks.map(it => {
+                        switch (it.type) {
+                            case 'header':
+                                return `<h2><span>${it.text}</span></h2>`;
+                            case 'p':
+                                return `<span>${it.text}</span>`;
+                            default:
+                                return '';
+                        }
+                    }).join("<br>\n");
+                }
+                else
+                    return '';
             default:
                 return `undefined type\n`;
         }

@@ -207,6 +207,12 @@ function convertFileMap(fileMap: Record<string, FileInfo>, blocks: Block[]): Fil
     return Object.keys(fileMap).sort((a, b) => fileKeyOrder(a) - fileKeyOrder(b)).map(it => fileMap[it]);
 }
 
+function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): EmbedInfo[] {
+    const embedOrder = blocks.filter((it): it is EmbedBlock => it.type === "embed").map(it => it.embedId);
+    const embedKeyOrder = (s: string) => embedOrder.indexOf(s) ?? embedOrder.length;
+    return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
+}
+
 /**
  * timeoutによる疑似スリーブ
  * @param ms ミリ秒
@@ -452,11 +458,12 @@ function createPostHtmlFromPostInfo(postInfo: PostInfo, coverFilename?: string):
                     postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             case "file":
                 return postInfo.body.files.map((it, i) => createFile(getFileName(it, postInfo.title, i))).join("<br>\n") +
-                    postInfo.body.text?.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+                    postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             case "article":
-                let cntImg = 0, cntFile = 0;
+                let cntImg = 0, cntFile = 0, cntEmbed = 0;
                 const files = convertFileMap(postInfo.body.fileMap, postInfo.body.blocks);
                 const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks);
+                const embeds = convertEmbedMap(postInfo.body.embedMap, postInfo.body.blocks);
                 return postInfo.body.blocks.map(it => {
                     switch (it.type) {
                         case 'p':
@@ -471,10 +478,28 @@ function createPostHtmlFromPostInfo(postInfo: PostInfo, coverFilename?: string):
                             const imgName = getImageName(images[cntImg], postInfo.title, cntImg);
                             cntImg++;
                             return createImg(imgName);
+                        case "embed":
+                            // FIXME 型が分からないので取りあえず文字列に投げて処理
+                            return `<span>${embeds[cntEmbed++]}</span>`;
                         default:
                             return console.error(`unknown block type: ${it.type}`);
                     }
                 }).join("<br>\n");
+            case "text": // FIXME 型が分からないので適当に書いてる
+                if (postInfo.body.text) {
+                    return postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+                } else if (postInfo.body.blocks) {
+                    return postInfo.body.blocks.map(it => {
+                        switch (it.type) {
+                            case 'header':
+                                return `<h2><span>${it.text}</span></h2>`;
+                            case 'p':
+                                return `<span>${it.text}</span>`;
+                            default:
+                                return '';
+                        }
+                    }).join("<br>\n");
+                } else return '';
             default:
                 return `undefined type\n`;
         }
@@ -536,16 +561,24 @@ type PostInfo = {
     body: { text: string, images: ImageInfo[] },
 } | {
     type: "file",
-    body: { text?: string, files: FileInfo[] }, // TODO textが存在するか要確認
+    body: { text: string, files: FileInfo[] }, // TODO textが存在するか要確認
 } | {
     type: "article",
-    body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, blocks: Block[] },
-} | { type: "text", body: {} });
+    body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, embedMap: Record<string, EmbedInfo>, blocks: Block[] },
+} | {
+    type: "text",
+    body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
+} | {
+    type: "unknown",
+    body: {},
+});
 type ImageInfo = { originalUrl: string, extension: string };
 type FileInfo = { url: string, name: string, extension: string };
+type EmbedInfo = any; // FIXME
 type ImageBlock = { type: 'image', imageId: string };
 type FileBlock = { type: "file", fileId: string };
 type TextBlock = { type: "p" | "header", text: string };
-type UnknownBlock = { type: "unknown" };
-type Block = ImageBlock | FileBlock | TextBlock | UnknownBlock;
+type EmbedBlock = { type: "embed", embedId: string };
+type UnknownBlock = { type: "unknown" }; // 他の型がありそうなので入れてる default句で使ってるのでコンパイルすると型が消えて他のを除いた全部に対応する
+type Block = ImageBlock | FileBlock | TextBlock | EmbedBlock | UnknownBlock;
 type DlInfo = { url: string, filename: string };
