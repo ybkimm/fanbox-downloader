@@ -177,6 +177,24 @@ function addUrl(postObj: PostObj, url: string, filename: string) {
     postObj.items.push({url, filename});
 }
 
+/**
+ * ファイル名に使えない半角文字を全角文字に変換する
+ * @param filename
+ * @return エスケープされた文字列
+ */
+function escapeFileName(filename: string): string {
+    return filename
+        .replace("/", "／")
+        .replace("\\", "＼")
+        .replace(",", "，")
+        .replace(":", "：")
+        .replace("*", "＊")
+        .replace("\"", "“")
+        .replace("<", "＜")
+        .replace(">", "＞")
+        .replace("|", "｜");
+}
+
 function convertImageMap(imageMap: Record<string, ImageInfo>, blocks: Block[]): ImageInfo[] {
     const imageOrder = blocks.filter((it): it is ImageBlock => it.type === "image").map(it => it.imageId);
     const imageKeyOrder = (s: string) => imageOrder.indexOf(s) ?? imageOrder.length;
@@ -245,28 +263,30 @@ async function downloadZip(json: string, progress: (n: number) => void, log: (s:
     await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/StreamSaver.js');
     await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/examples/zip-stream.js');
 
+    const id = escapeFileName(dlList.id);
     // @ts-ignore
-    const fileStream = streamSaver.createWriteStream(`${dlList.id}.zip`);
+    const fileStream = streamSaver.createWriteStream(`${id}.zip`);
     // @ts-ignore
     const readableZipStream = new createWriter({
         async pull(ctrl: any) {
             let count = 0;
             log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
             // ルートhtml
-            ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${dlList.id}/index.html`));
+            ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${id}/index.html`));
 
             for (const [title, post] of Object.entries(dlList.posts)) {
                 if (!post) continue;
+                const path = `${id}/${escapeFileName(title)}`;
                 // 投稿情報+html
-                ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
-                ctrl.enqueue(new File([createHtml(title, post.html)], `${dlList.id}/${title}/index.html`));
+                ctrl.enqueue(new File([post.info], `${path}/info.txt`));
+                ctrl.enqueue(new File([createHtml(title, post.html)], `${path}/index.html`));
                 // カバー画像
                 if (post.cover) {
                     log(`download ${post.cover.filename}`);
                     const response = await download(post.cover, 1);
                     if (response) {
                         ctrl.enqueue({
-                            name: `${dlList.id}/${title}/${post.cover.filename}`,
+                            name: `${path}/${escapeFileName(post.cover.filename)}`,
                             stream: () => response.body
                         });
                     }
@@ -277,7 +297,7 @@ async function downloadZip(json: string, progress: (n: number) => void, log: (s:
                     log(`download ${dl.filename} (${i++}/${l})`);
                     const response = await download(dl, 1);
                     if (response) {
-                        ctrl.enqueue({name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body});
+                        ctrl.enqueue({name: `${path}/${escapeFileName(dl.filename)}`, stream: () => response.body});
                     } else {
                         console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
                         log(`${dl.filename}のダウンロードに失敗`);
@@ -465,8 +485,9 @@ function createPostHtmlFromPostInfo(postInfo: PostInfo, coverFilename?: string):
 // ルートのhtml
 function createRootHtmlFromPosts(): string {
     return Object.entries(dlList.posts).map(([title, post]) => {
-        return `<a class="hl" href="./${title}/index.html"><div class="root card">\n` +
-            `<img class="card-img-top gray-card" ${post.cover ? `src="./${title}/${post.cover.filename}"` : ''}/>\n` +
+        const escapedTitle = escapeFileName(title);
+        return `<a class="hl" href="./${escapedTitle}/index.html"><div class="root card">\n` +
+            `<img class="card-img-top gray-card" ${post.cover ? `src="./${escapedTitle}/${escapeFileName(post.cover.filename)}"` : ''}/>\n` +
             `<div class="card-body"><h5 class="card-title">${title}</h5></div>\n</div></a><br>\n`
     }).join('\n');
 }
@@ -478,13 +499,15 @@ function createTitle(title: string): string {
 
 // 画像表示
 function createImg(filename: string): string {
-    return `<a class="hl" href="./${filename}"><div class="post card">\n` +
-        `<img class="card-img-top" src="./${filename}"/>\n</div></a>`;
+    const escapedFilename = escapeFileName(filename);
+    return `<a class="hl" href="./${escapedFilename}"><div class="post card">\n` +
+        `<img class="card-img-top" src="./${escapedFilename}"/>\n</div></a>`;
 }
 
 // ファイル表示
 function createFile(filename: string): string {
-    return `<span><a href="./${filename}">${filename}</a></span>`;
+    const escapedFilename = escapeFileName(filename);
+    return `<span><a href="./${escapedFilename}">${escapedFilename}</a></span>`;
 }
 
 // bodyからhtmlをつくる

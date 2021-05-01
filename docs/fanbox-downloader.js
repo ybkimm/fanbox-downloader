@@ -135,6 +135,18 @@ function addUrl(postObj, url, filename) {
     dlList.fileCount++;
     postObj.items.push({ url, filename });
 }
+function escapeFileName(filename) {
+    return filename
+        .replace("/", "／")
+        .replace("\\", "＼")
+        .replace(",", "，")
+        .replace(":", "：")
+        .replace("*", "＊")
+        .replace("\"", "“")
+        .replace("<", "＜")
+        .replace(">", "＞")
+        .replace("|", "｜");
+}
 function convertImageMap(imageMap, blocks) {
     const imageOrder = blocks.filter((it) => it.type === "image").map(it => it.imageId);
     const imageKeyOrder = (s) => { var _a; return (_a = imageOrder.indexOf(s)) !== null && _a !== void 0 ? _a : imageOrder.length; };
@@ -181,23 +193,25 @@ async function downloadZip(json, progress, log) {
     await script('https://cdn.jsdelivr.net/npm/web-streams-polyfill@2.0.2/dist/ponyfill.min.js');
     await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/StreamSaver.js');
     await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/examples/zip-stream.js');
-    const fileStream = streamSaver.createWriteStream(`${dlList.id}.zip`);
+    const id = escapeFileName(dlList.id);
+    const fileStream = streamSaver.createWriteStream(`${id}.zip`);
     const readableZipStream = new createWriter({
         async pull(ctrl) {
             let count = 0;
             log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
-            ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${dlList.id}/index.html`));
+            ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${id}/index.html`));
             for (const [title, post] of Object.entries(dlList.posts)) {
                 if (!post)
                     continue;
-                ctrl.enqueue(new File([post.info], `${dlList.id}/${title}/info.txt`));
-                ctrl.enqueue(new File([createHtml(title, post.html)], `${dlList.id}/${title}/index.html`));
+                const path = `${id}/${escapeFileName(title)}`;
+                ctrl.enqueue(new File([post.info], `${path}/info.txt`));
+                ctrl.enqueue(new File([createHtml(title, post.html)], `${path}/index.html`));
                 if (post.cover) {
                     log(`download ${post.cover.filename}`);
                     const response = await download(post.cover, 1);
                     if (response) {
                         ctrl.enqueue({
-                            name: `${dlList.id}/${title}/${post.cover.filename}`,
+                            name: `${path}/${escapeFileName(post.cover.filename)}`,
                             stream: () => response.body
                         });
                     }
@@ -207,7 +221,7 @@ async function downloadZip(json, progress, log) {
                     log(`download ${dl.filename} (${i++}/${l})`);
                     const response = await download(dl, 1);
                     if (response) {
-                        ctrl.enqueue({ name: `${dlList.id}/${title}/${dl.filename}`, stream: () => response.body });
+                        ctrl.enqueue({ name: `${path}/${escapeFileName(dl.filename)}`, stream: () => response.body });
                     }
                     else {
                         console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
@@ -367,8 +381,9 @@ function createPostHtmlFromPostInfo(postInfo, coverFilename) {
 }
 function createRootHtmlFromPosts() {
     return Object.entries(dlList.posts).map(([title, post]) => {
-        return `<a class="hl" href="./${title}/index.html"><div class="root card">\n` +
-            `<img class="card-img-top gray-card" ${post.cover ? `src="./${title}/${post.cover.filename}"` : ''}/>\n` +
+        const escapedTitle = escapeFileName(title);
+        return `<a class="hl" href="./${escapedTitle}/index.html"><div class="root card">\n` +
+            `<img class="card-img-top gray-card" ${post.cover ? `src="./${escapedTitle}/${escapeFileName(post.cover.filename)}"` : ''}/>\n` +
             `<div class="card-body"><h5 class="card-title">${title}</h5></div>\n</div></a><br>\n`;
     }).join('\n');
 }
@@ -376,11 +391,13 @@ function createTitle(title) {
     return `<h5>${title}</h5>\n`;
 }
 function createImg(filename) {
-    return `<a class="hl" href="./${filename}"><div class="post card">\n` +
-        `<img class="card-img-top" src="./${filename}"/>\n</div></a>`;
+    const escapedFilename = escapeFileName(filename);
+    return `<a class="hl" href="./${escapedFilename}"><div class="post card">\n` +
+        `<img class="card-img-top" src="./${escapedFilename}"/>\n</div></a>`;
 }
 function createFile(filename) {
-    return `<span><a href="./${filename}">${filename}</a></span>`;
+    const escapedFilename = escapeFileName(filename);
+    return `<span><a href="./${escapedFilename}">${escapedFilename}</a></span>`;
 }
 function createHtml(title, body) {
     return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
