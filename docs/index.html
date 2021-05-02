@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8"/>
+    <title>fanbox-downloader</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <style>
+        button.copy {
+            display: block;
+            font-size: 75%;
+            color: #818a91;
+            cursor: pointer;
+            background-color: transparent;
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+
+        div.copy {
+            float: right;
+            position: relative;
+        }
+
+        div.code {
+            padding: 24px;
+            background-color: #f8f9fa;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        div.code-bg {
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        div.text-body {
+            text-align: left;
+            margin: 15px;
+        }
+
+        div.text-cite {
+            text-align: left;
+            margin: 15px;
+            font-size: 80%;
+        }
+    </style>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H05HP1B634"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+
+        gtag('js', new Date());
+        gtag('config', 'G-H05HP1B634');
+    </script>
+</head>
+
+<body>
+<div class="text-center" style="margin: 10px;">
+    <h2>fanbox-downloader</h2>
+    <div>
+        pixiv FANBOX の投稿をZIPとして一括ダウンロードするブックマークレットです。<br>
+        <a href="https://github.com/darekasan/fanbox-downloader">オリジナル</a>から好き勝手に手を加えています。
+    </div>
+    <br>
+    <div class="code-bg">
+        <div class="text-body">
+            <h5>使い方</h5><br>
+            <p>1. ブックマークレットをブックマークに追加する</p>
+        </div>
+
+        <div class="copy">
+            <button class="copy btn" type="button" id="copy">copy</button>
+        </div>
+        <div class="code" id="code">
+            javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main());
+        </div>
+
+        <div class="text-body">
+            <p>2. FANBOXのクリエイターページか投稿ページ<a href="#cite-1">^1</a>で実行する</p>
+            <p>3. 投稿情報がjsonでクリップボードに吐き出される</p>
+            <p>4. ダウンロードページ<a href="#cite-2">^2</a>でまた実行、入力ボックスに3のjsonをコピペ</p>
+            <p>5. なんかダウンロードはじまる</p>
+        </div>
+
+        <br>
+
+        <div class="text-cite">
+            <p id="cite-1">[^1]: ○○○.fanbox.ccかfanbox.cc/@○○○から始まるURLのページ</p>
+            <p id="cite-2">[^2]: download.fanbox.ccから始まるURLのページ(画像だとオリジナルサイズで表示のところ)</p>
+        </div>
+
+        <br>
+
+        <div class="text-body">
+            <h5>リンク</h5>
+            <ul>
+                <li><a href="https://github.com/furubarug/fanbox-downloader">Github</a></li>
+                <li><a href="https://github.com/darekasan/fanbox-downloader">オリジナル(フォーク元)</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    function copy() {
+        const node = document.querySelector("#code");
+        const range = document.createRange();
+        const selection = window.getSelection();
+        range.selectNodeContents(node);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand("copy");
+    }
+
+    document.querySelector("#copy").addEventListener("click", copy);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW"
+        crossorigin="anonymous"></script>
+</body>
+</html>
