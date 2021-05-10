@@ -178,14 +178,12 @@ async function download({ url, filename }, limit) {
     if (limit < 0)
         return null;
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`DL失敗: ${filename}, ${url}`);
-            await sleep(1000);
-            return await download({ url, filename }, limit - 1);
-        }
-        else
-            return response;
+        const blob = await fetch(url)
+            .catch(e => {
+            throw new Error(e);
+        })
+            .then(r => r.ok ? r.blob() : null);
+        return blob ? blob : await download({ url, filename }, limit - 1);
     }
     catch (_) {
         console.error(`通信エラー: ${filename}, ${url}`);
@@ -213,20 +211,17 @@ async function downloadZip(json, progress, log) {
                 ctrl.enqueue(new File([createHtml(title, post.html)], `${path}/index.html`));
                 if (post.cover) {
                     log(`download ${post.cover.filename}`);
-                    const response = await download(post.cover, 1);
-                    if (response) {
-                        ctrl.enqueue({
-                            name: `${path}/${escapeFileName(post.cover.filename)}`,
-                            stream: () => response.body
-                        });
+                    const blob = await download(post.cover, 1);
+                    if (blob) {
+                        ctrl.enqueue(new File([blob], `${path}/${escapeFileName(post.cover.filename)}`));
                     }
                 }
                 let i = 1, l = post.items.length;
                 for (const dl of post.items) {
                     log(`download ${dl.filename} (${i++}/${l})`);
-                    const response = await download(dl, 1);
-                    if (response) {
-                        ctrl.enqueue({ name: `${path}/${escapeFileName(dl.filename)}`, stream: () => response.body });
+                    const blob = await download(dl, 1);
+                    if (blob) {
+                        ctrl.enqueue(new File([blob], `${path}/${escapeFileName(dl.filename)}`));
                     }
                     else {
                         console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
