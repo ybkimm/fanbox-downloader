@@ -23,7 +23,6 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 
 ### 既知の問題
 - 4GB超えるとZIP解凍時にエラーが出る（解凍ファイルに問題はないけど、うるさいツールだと解凍してくれないかも）
-- ダウンロードに失敗したファイルがあると圧縮が終わらない（一時ファイルから成功したところまでの解凍は出来る）
 
 ### fork後の変更点
 - 対応するURLを少し増やした
