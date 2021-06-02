@@ -137,15 +137,15 @@ function addUrl(postObj, url, filename) {
 }
 function escapeFileName(filename) {
     return filename
-        .replace("/", "／")
-        .replace("\\", "＼")
-        .replace(",", "，")
-        .replace(":", "：")
-        .replace("*", "＊")
-        .replace("\"", "“")
-        .replace("<", "＜")
-        .replace(">", "＞")
-        .replace("|", "｜");
+        .replace(/\//g, "／")
+        .replace(/\\/g, "＼")
+        .replace(/,/g, "，")
+        .replace(/:/g, "：")
+        .replace(/\*/g, "＊")
+        .replace(/"/g, "“")
+        .replace(/</g, "＜")
+        .replace(/>/g, "＞")
+        .replace(/\|/g, "｜");
 }
 function convertImageMap(imageMap, blocks) {
     const imageOrder = blocks.filter((it) => it.type === "image").map(it => it.imageId);
