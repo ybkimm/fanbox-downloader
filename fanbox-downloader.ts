@@ -520,8 +520,8 @@ function createCoverHtmlFromPost(escapedTitle: string, post: PostObj): string {
     if (post.cover) {
         return `<img class="card-img-top gray-card" src="./${escapedTitle}/${escapeFileName(post.cover.filename)}"/>\n`;
     } else if (post.items.length > 0) {
-        return '<div class="carousel slide" data-bs-ride="carousel" data-interval="1000"><div class="carousel-inner">\n<div class="carousel-item active">\n' +
-            post.items.map(it => `<img src="./${escapedTitle}/${escapeFileName(it.filename)}" class="d-block gray-carousel" height="180px"/>`).join('</div>\n<div class="carousel-item">') +
+        return '<div class="carousel slide" data-bs-ride="carousel" data-interval="1000"><div class="carousel-inner">\n<div class="carousel-item active">' +
+            post.items.map(it => `<div class="d-flex justify-content-center gray-carousel"><img src="./${escapedTitle}/${escapeFileName(it.filename)}" class="d-block pd-carousel" height="180px"/></div>`).join('</div>\n<div class="carousel-item">') +
             '</div>\n</div></div>\n';
     } else {
         return `<img class="card-img-top gray-card" />\n`;
@@ -550,7 +550,7 @@ function createFile(filename: string): string {
 function createHtml(title: string, body: string): string {
     return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
         '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossOrigin="anonymous">\n' +
-        '<style>div.main{width: 600px; float: none; margin: 0 auto} a.hl,a.hl:hover {color: inherit;text-decoration: none;}div.root{width: 400px} div.post{width: 600px}div.card {float: none; margin: 0 auto;}img.gray-card {height: 210px;background-color: gray;}img.gray-carousel {height: 210px; width: 400px;background-color: gray; padding: 15px;}</style>\n' +
+        '<style>div.main{width: 600px; float: none; margin: 0 auto} a.hl,a.hl:hover {color: inherit;text-decoration: none;}div.root{width: 400px} div.post{width: 600px}div.card {float: none; margin: 0 auto;}img.gray-card {height: 210px;background-color: gray;}div.gray-carousel {height: 210px; width: 400px;background-color: gray;}img.pd-carousel {height: 210px; padding: 15px;}</style>\n' +
         `</head>\n<body>\n<div class="main">\n${body}\n</div>\n` +
         '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossOrigin="anonymous"></script>\n' +
         '</body></html>';
