@@ -184,15 +184,15 @@ function addUrl(postObj: PostObj, url: string, filename: string) {
  */
 function escapeFileName(filename: string): string {
     return filename
-        .replace("/", "／")
-        .replace("\\", "＼")
-        .replace(",", "，")
-        .replace(":", "：")
-        .replace("*", "＊")
-        .replace("\"", "“")
-        .replace("<", "＜")
-        .replace(">", "＞")
-        .replace("|", "｜");
+        .replace(/\//g, "／")
+        .replace(/\\/g, "＼")
+        .replace(/,/g, "，")
+        .replace(/:/g, "：")
+        .replace(/\*/g, "＊")
+        .replace(/"/g, "“")
+        .replace(/</g, "＜")
+        .replace(/>/g, "＞")
+        .replace(/\|/g, "｜");
 }
 
 function convertImageMap(imageMap: Record<string, ImageInfo>, blocks: Block[]): ImageInfo[] {
