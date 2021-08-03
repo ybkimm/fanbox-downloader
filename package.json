@@ -3,7 +3,7 @@
   "version": "2.2.1",
   "description": "pixiv FANBOXの投稿を投稿毎にフォルダ分け → ZIPとして一括ダウンロードするブックマークレット",
   "scripts": {
-    "compile": "tsc & uglifyjs ./docs/fanbox-downloader.js > ./docs/fanbox-downloader.min.js"
+    "compile": "tsc && uglifyjs ./docs/fanbox-downloader.js > ./docs/fanbox-downloader.min.js"
   },
   "repository": {
     "type": "git",
