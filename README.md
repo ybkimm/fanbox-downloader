@@ -8,7 +8,7 @@ pixiv FANBOXの投稿を投稿毎にフォルダ分け → ZIPとして一括ダ
 
 ↓ブックマークレット
 ```
-javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main());
+javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-downloader.min.js").then(m=>m.main()).catch(e=>alert(`エラー出た(${e})`));
 ```
 
 ### 既知の問題
@@ -20,3 +20,19 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 - 投稿の文章とかの情報もそれっぽく保存
 - コードが長くなったから外部から読み込むようにした
 
+### TIPS
+
+- tsコンパイル
+
+```bash
+# yarn global add typescript
+tsc
+```
+
+- minify
+
+```bash
+# yarn global add uglify-js
+cd docs
+uglifyjs fanbox-downloader.js > fanbox-downloader.min.js
+```

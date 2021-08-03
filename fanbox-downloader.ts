@@ -30,6 +30,9 @@ export async function main() {
     console.log(json);
     await navigator.clipboard.writeText(json);
     alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
+    if (confirm("downloads.fanbox.ccに遷移する？")) {
+        document.location.href = "https://downloads.fanbox.cc";
+    }
 }
 
 /**
