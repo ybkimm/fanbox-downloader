@@ -20,19 +20,11 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 - 投稿の文章とかの情報もそれっぽく保存
 - コードが長くなったから外部から読み込むようにした
 
-### TIPS
+### 開発用TIPS
 
 - tsコンパイル
 
 ```bash
-# yarn global add typescript
-tsc
-```
-
-- minify
-
-```bash
-# yarn global add uglify-js
-cd docs
-uglifyjs fanbox-downloader.js > fanbox-downloader.min.js
+# npm run compile
+yarn run compile
 ```

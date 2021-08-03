@@ -1,0 +1,21 @@
+{
+  "name": "fanbox-downloader",
+  "version": "2.2.1",
+  "description": "pixiv FANBOXの投稿を投稿毎にフォルダ分け → ZIPとして一括ダウンロードするブックマークレット",
+  "scripts": {
+    "compile": "tsc & uglifyjs ./docs/fanbox-downloader.js > ./docs/fanbox-downloader.min.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furubarug/fanbox-downloader.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/furubarug/fanbox-downloader/issues"
+  },
+  "homepage": "https://furubarug.github.io/fanbox-downloader/",
+  "devDependencies": {
+    "typescript": "^4.3.5",
+    "uglify-js": "^3.14.1"
+  }
+}
