@@ -407,19 +407,18 @@ function createPostHtmlFromPostInfo(postInfo, coverFilename) {
 function createRootHtmlFromPosts() {
     return Object.entries(dlList.posts).map(([title, post]) => {
         const escapedTitle = escapeFileName(title);
-        return `<a class="hl" href="./${escapedTitle}/index.html"><div class="root card">\n` +
+        return `<a class="hl" href="${encodeURI(`./${escapedTitle}/index.html`)}"><div class="root card">\n` +
             createCoverHtmlFromPost(escapedTitle, post) +
             `<div class="card-body"><h5 class="card-title">${title}</h5></div>\n</div></a><br>\n`;
     }).join('\n');
 }
 function createCoverHtmlFromPost(escapedTitle, post) {
     if (post.cover) {
-        return `<img class="card-img-top gray-card" src="./${escapedTitle}/${escapeFileName(post.cover.filename)}"/>\n`;
+        return `<img class="card-img-top gray-card" src="${encodeURI(`./${escapedTitle}/${escapeFileName(post.cover.filename)}`)}"/>\n`;
     }
     else if (post.items.length > 0) {
         return '<div class="carousel slide" data-bs-ride="carousel" data-interval="1000"><div class="carousel-inner">\n<div class="carousel-item active">' +
-            post.items.map(it => `<div class="d-flex justify-content-center gray-carousel"><img src="./${escapedTitle}/${escapeFileName(it.filename)}" class="d-block pd-carousel" height="180px"/></div>`).join('</div>\n<div class="carousel-item">') +
-            '</div>\n</div></div>\n';
+            post.items.map(it => `<div class="d-flex justify-content-center gray-carousel"><img src="${encodeURI(`./${escapedTitle}/${escapeFileName(it.filename)}`)}" class="d-block pd-carousel" height="180px"/></div>`).join('</div>\n<div class="carousel-item">') + '</div>\n</div></div>\n';
     }
     else {
         return `<img class="card-img-top gray-card" />\n`;
@@ -430,12 +429,12 @@ function createTitle(title) {
 }
 function createImg(filename) {
     const escapedFilename = escapeFileName(filename);
-    return `<a class="hl" href="./${escapedFilename}"><div class="post card">\n` +
-        `<img class="card-img-top" src="./${escapedFilename}"/>\n</div></a>`;
+    return `<a class="hl" href="${encodeURI(`./${escapedFilename}"><div class="post card`)}">\n` +
+        `<img class="card-img-top" src="${encodeURI(`./${escapedFilename}`)}"/>\n</div></a>`;
 }
 function createFile(filename) {
     const escapedFilename = escapeFileName(filename);
-    return `<span><a href="./${escapedFilename}">${escapedFilename}</a></span>`;
+    return `<span><a href="${encodeURI(`./${escapedFilename}`)}">${escapedFilename}</a></span>`;
 }
 function createHtml(title, body) {
     return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
