@@ -99,7 +99,7 @@ async function getItemsById(postId: string) {
     for (; nextUrl != null; count++) {
         console.log(count + "回目");
         nextUrl = addByPostListUrl(nextUrl, isEco);
-        await sleep(100);
+        await helper.sleep(100);
     }
 }
 
@@ -200,15 +200,6 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     const embedKeyOrder = (s: string) => embedOrder.indexOf(s) ?? embedOrder.length;
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
 }
-
-/**
- * timeoutによる疑似スリーブ
- * @param ms ミリ秒
- */
-async function sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 
 /**
  * postInfoオブジェクトから投稿情報テキストを作る
