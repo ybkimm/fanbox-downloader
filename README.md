@@ -25,6 +25,6 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 - tsコンパイル
 
 ```bash
-# npm run compile
-yarn run compile
+# yarn run build
+npm run build
 ```

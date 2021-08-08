@@ -1,18 +1,21 @@
+import {DownloadHelper} from 'download-helper/download-helper';
+
 let dlList: { posts: Record<string, PostObj>, postCount: number, fileCount: number, id: string } =
     {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
 let limit: number | null = 0;
 let isIgnoreFree = false;
 
 // 投稿の情報を個別に取得しない（基本true）
-let isEco = true;
+const isEco = true;
 
 const getImageName = (img: ImageInfo, title: string, index: number) => `${title} ${index + 1}.${img.extension}`;
 const getFileName = (file: FileInfo, title: string, index: number) => `${title} ${file.name}.${file.extension}`;
+const helper = new DownloadHelper();
 
 // メイン
 export async function main() {
     if (window.location.origin === "https://downloads.fanbox.cc") {
-        createDownloadUI();
+        await helper.createDownloadUI('fanbox-downloader');
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
         const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
@@ -180,24 +183,6 @@ function addUrl(postObj: PostObj, url: string, filename: string) {
     postObj.items.push({url, filename});
 }
 
-/**
- * ファイル名に使えない半角文字を全角文字に変換する
- * @param filename
- * @return エスケープされた文字列
- */
-function escapeFileName(filename: string): string {
-    return filename
-        .replace(/\//g, "／")
-        .replace(/\\/g, "＼")
-        .replace(/,/g, "，")
-        .replace(/:/g, "：")
-        .replace(/\*/g, "＊")
-        .replace(/"/g, "“")
-        .replace(/</g, "＜")
-        .replace(/>/g, "＞")
-        .replace(/\|/g, "｜");
-}
-
 function convertImageMap(imageMap: Record<string, ImageInfo>, blocks: Block[]): ImageInfo[] {
     const imageOrder = blocks.filter((it): it is ImageBlock => it.type === "image").map(it => it.imageId);
     const imageKeyOrder = (s: string) => imageOrder.indexOf(s) ?? imageOrder.length;
@@ -224,203 +209,6 @@ async function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * DOMによる外部スクリプト読み込み (importじゃだめなとき用)
- * @param url
- */
-async function script(url: string) {
-    return new Promise((resolve, reject) => {
-        let script = document.createElement("script");
-        script.src = url;
-        script.onload = () => resolve(script);
-        script.onerror = (e) => reject(e);
-        document.head.appendChild(script);
-    });
-}
-
-/**
- * fetch
- * @param url
- * @param filename
- * @param limit 回数制限
- */
-async function download({url, filename}: DlInfo, limit: number): Promise<Blob | null> {
-    if (limit < 0) return null;
-    try {
-        const blob = await fetch(url)
-            .catch(e => {
-                throw new Error(e)
-            })
-            .then(r => r.ok ? r.blob() : null);
-        return blob ? blob : await download({url, filename}, limit - 1);
-    } catch (_) {
-        console.error(`通信エラー: ${filename}, ${url}`);
-        await sleep(1000);
-        return await download({url, filename}, limit - 1);
-    }
-}
-
-/**
- * ZIPでダウンロード
- * @param json dlListのjson文字列
- * @param progress 進捗率出力関数
- * @param log ログ出力関数
- */
-async function downloadZip(json: string, progress: (n: number) => void, log: (s: string) => void) {
-    dlList = JSON.parse(json);
-    await script('https://cdn.jsdelivr.net/npm/web-streams-polyfill@2.0.2/dist/ponyfill.min.js');
-    await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/StreamSaver.js');
-    await script('https://cdn.jsdelivr.net/npm/streamsaver@2.0.3/examples/zip-stream.js');
-
-    const id = escapeFileName(dlList.id);
-    // @ts-ignore
-    const fileStream = streamSaver.createWriteStream(`${id}.zip`);
-    // @ts-ignore
-    const readableZipStream = new createWriter({
-        async pull(ctrl: any) {
-            let count = 0;
-            log(`@${dlList.id} 投稿:${dlList.postCount} ファイル:${dlList.fileCount}`);
-            // ルートhtml
-            ctrl.enqueue(new File([createHtml(dlList.id, createRootHtmlFromPosts())], `${id}/index.html`));
-
-            for (const [title, post] of Object.entries(dlList.posts)) {
-                if (!post) continue;
-                const path = `${id}/${escapeFileName(title)}`;
-                // 投稿情報+html
-                ctrl.enqueue(new File([post.info], `${path}/info.txt`));
-                ctrl.enqueue(new File([createHtml(title, post.html)], `${path}/index.html`));
-                // カバー画像
-                if (post.cover) {
-                    log(`download ${post.cover.filename}`);
-                    const blob = await download(post.cover, 1);
-                    if (blob) {
-                        ctrl.enqueue(new File([blob], `${path}/${escapeFileName(post.cover.filename)}`));
-                    }
-                }
-                // ファイル処理
-                let i = 1, l = post.items.length;
-                for (const dl of post.items) {
-                    log(`download ${dl.filename} (${i++}/${l})`);
-                    const blob = await download(dl, 1);
-                    if (blob) {
-                        ctrl.enqueue(new File([blob], `${path}/${escapeFileName(dl.filename)}`));
-                    } else {
-                        console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
-                        log(`${dl.filename}のダウンロードに失敗`);
-                    }
-                    count++;
-                    await setTimeout(() => progress(count * 100 / dlList.fileCount | 0), 0);
-                    await sleep(100);
-                }
-                log(`${count * 100 / dlList.fileCount | 0}% (${count}/${dlList.fileCount})`);
-            }
-            ctrl.close();
-        }
-    });
-
-    // more optimized
-    if (window.WritableStream && readableZipStream.pipeTo) {
-        return readableZipStream.pipeTo(fileStream).then(() => console.log('done writing'));
-    }
-
-    // less optimized
-    const writer = fileStream.getWriter();
-    const reader = readableZipStream.getReader();
-    const pump = () => reader.read().then((res: any) => res.done ? writer.close() : writer.write(res.value).then(pump));
-    await pump();
-}
-
-
-/**
- * download 用のUIを構築する
- */
-function createDownloadUI() {
-    document.head.innerHTML = "";
-    document.body.innerHTML = "";
-    document.getElementsByTagName("html")[0].style.height = "100%";
-    document.body.style.height = "100%";
-    document.body.style.margin = "0";
-    document.title = "fanbox-downloader";
-
-    let bootLink = document.createElement("link");
-    bootLink.href = "https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css";
-    bootLink.rel = "stylesheet";
-    bootLink.integrity = "sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1";
-    bootLink.crossOrigin = "anonymous";
-    document.head.appendChild(bootLink);
-
-    let bodyDiv = document.createElement("div");
-    bodyDiv.style.display = "flex";
-    bodyDiv.style.alignItems = "center";
-    bodyDiv.style.justifyContent = "center";
-    bodyDiv.style.flexDirection = "column";
-    bodyDiv.style.height = "100%";
-    let inputDiv = document.createElement("div");
-    inputDiv.className = "input-group mb-2";
-    inputDiv.style.width = "400px";
-    let input = document.createElement("input");
-    input.type = "text"
-    input.className = "form-control"
-    input.placeholder = "ここにJSONを貼り付け"
-    inputDiv.appendChild(input);
-    let buttonDiv = document.createElement("div");
-    buttonDiv.className = "input-group-append";
-    let button = document.createElement("button");
-    button.className = "btn btn-outline-secondary btn-labeled";
-    button.type = "button";
-    button.innerText = "Download";
-    buttonDiv.appendChild(button);
-    inputDiv.appendChild(buttonDiv);
-    bodyDiv.appendChild(inputDiv);
-    let progressDiv = document.createElement("div");
-    progressDiv.className = "progress mb-3";
-    progressDiv.style.width = "400px";
-    let progress = document.createElement("div");
-    progress.className = "progress-bar";
-    // @ts-ignore
-    progress["role"] = "progressbar";
-    // @ts-ignore
-    progress["aria-valuemin"] = "0";
-    // @ts-ignore
-    progress["aria-valuemax"] = "100";
-    // @ts-ignore
-    progress["aria-valuenow"] = "0";
-    progress.style.width = "0%"
-    progress.innerText = "0%";
-    const setProgress = (n: number) => {
-        // @ts-ignore
-        progress["aria-valuenow"] = `${n}`;
-        progress.style.width = `${n}%`;
-        progress.innerText = `${n}%`;
-    };
-    progressDiv.appendChild(progress);
-    bodyDiv.appendChild(progressDiv);
-    let textarea = document.createElement("textarea");
-    textarea.className = "form-control";
-    textarea.readOnly = true;
-    textarea.style.resize = "both";
-    textarea.style.width = "500px";
-    textarea.style.height = "80px";
-    const textLog = (t: string) => {
-        textarea.value += `${t}\n`;
-        textarea.scrollTop = textarea.scrollHeight;
-    };
-    bodyDiv.appendChild(textarea);
-    document.body.appendChild(bodyDiv);
-
-    let bootScript = document.createElement("script");
-    bootScript.src = "https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js";
-    bootScript.integrity = "sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW";
-    bootScript.crossOrigin = "anonymous";
-    document.body.appendChild(bootScript);
-    const loadingFun = ((event: BeforeUnloadEvent) => event.returnValue = `downloading`);
-
-    button.onclick = function () {
-        button.disabled = true;
-        window.addEventListener('beforeunload', loadingFun);
-        downloadZip(input.value, setProgress, textLog).then(() => window.removeEventListener("beforeunload", loadingFun));
-    };
-}
 
 /**
  * postInfoオブジェクトから投稿情報テキストを作る
@@ -508,30 +296,6 @@ function createPostHtmlFromPostInfo(postInfo: PostInfo, coverFilename?: string):
     return header + body;
 }
 
-// ルートのhtml
-function createRootHtmlFromPosts(): string {
-    return Object.entries(dlList.posts).map(([title, post]) => {
-        const escapedTitle = escapeFileName(title);
-        return `<a class="hl" href="${encodeURI(`./${escapedTitle}/index.html`)}"><div class="root card">\n` +
-            createCoverHtmlFromPost(escapedTitle, post) +
-            `<div class="card-body"><h5 class="card-title">${title}</h5></div>\n</div></a><br>\n`
-    }).join('\n');
-}
-
-// cover画像
-function createCoverHtmlFromPost(escapedTitle: string, post: PostObj): string {
-    if (post.cover) {
-        return `<img class="card-img-top gray-card" src="${encodeURI(`./${escapedTitle}/${escapeFileName(post.cover.filename)}`)}"/>\n`;
-    } else if (post.items.length > 0) {
-        return '<div class="carousel slide" data-bs-ride="carousel" data-interval="1000"><div class="carousel-inner">\n<div class="carousel-item active">' +
-            post.items.map(it =>
-                `<div class="d-flex justify-content-center gray-carousel"><img src="${encodeURI(`./${escapedTitle}/${escapeFileName(it.filename)}`)}" class="d-block pd-carousel" height="180px"/></div>`
-            ).join('</div>\n<div class="carousel-item">') + '</div>\n</div></div>\n';
-    } else {
-        return `<img class="card-img-top gray-card" />\n`;
-    }
-}
-
 // タイトル
 function createTitle(title: string): string {
     return `<h5>${title}</h5>\n`;
@@ -539,25 +303,13 @@ function createTitle(title: string): string {
 
 // 画像表示
 function createImg(filename: string): string {
-    const escapedFilename = escapeFileName(filename);
-    return `<a class="hl" href="${encodeURI(`./${escapedFilename}"><div class="post card`)}">\n` +
-        `<img class="card-img-top" src="${encodeURI(`./${escapedFilename}`)}"/>\n</div></a>`;
+    return `<a class="hl" href="${helper.encodeLink(`./${filename}"><div class="post card`)}">\n` +
+        `<img class="card-img-top" src="${helper.encodeLink(`./${filename}`)}"/>\n</div></a>`;
 }
 
 // ファイル表示
 function createFile(filename: string): string {
-    const escapedFilename = escapeFileName(filename);
-    return `<span><a href="${encodeURI(`./${escapedFilename}`)}">${escapedFilename}</a></span>`;
-}
-
-// bodyからhtmlをつくる
-function createHtml(title: string, body: string): string {
-    return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
-        '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossOrigin="anonymous">\n' +
-        '<style>div.main{width: 600px; float: none; margin: 0 auto} a.hl,a.hl:hover {color: inherit;text-decoration: none;}div.root{width: 400px} div.post{width: 600px}div.card {float: none; margin: 0 auto;}img.gray-card {height: 210px;background-color: gray;}div.gray-carousel {height: 210px; width: 400px;background-color: gray;}img.pd-carousel {height: 210px; padding: 15px;}</style>\n' +
-        `</head>\n<body>\n<div class="main">\n${body}\n</div>\n` +
-        '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossOrigin="anonymous"></script>\n' +
-        '</body></html>';
+    return `<span><a href="${helper.encodeLink(`./${filename}`)}">${filename}</a></span>`;
 }
 
 type PostObj = Readonly<{ info: string, items: DlInfo[], html: string, cover?: DlInfo }>;
