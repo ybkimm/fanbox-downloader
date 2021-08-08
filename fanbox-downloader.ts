@@ -294,7 +294,7 @@ function createTitle(title: string): string {
 
 // 画像表示
 function createImg(filename: string): string {
-    return `<a class="hl" href="${helper.encodeLink(`./${filename}"><div class="post card`)}">\n` +
+    return `<a class="hl" href="${helper.encodeLink(`./${filename}`)}"><div class="post card">\n` +
         `<img class="card-img-top" src="${helper.encodeLink(`./${filename}`)}"/>\n</div></a>`;
 }
 
