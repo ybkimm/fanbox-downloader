@@ -3,6 +3,10 @@
     "target": "es2017",
     "module": "es2015",
     "outDir": "./docs/",
+    "lib": [
+      "dom",
+      "ESNext.String"
+    ],
     "removeComments": true,
     "strict": true,
     "esModuleInterop": true,
