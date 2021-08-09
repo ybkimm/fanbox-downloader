@@ -5,7 +5,7 @@
     "outDir": "./docs/",
     "lib": [
       "dom",
-      "ESNext.String"
+      "es2021"
     ],
     "removeComments": true,
     "strict": true,

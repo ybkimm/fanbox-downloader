@@ -1,7 +1,6 @@
-import {DownloadHelper} from 'download-helper/download-helper';
+import {DownloadHelper, DownloadObj, PostObj} from 'download-helper/download-helper';
 
-let dlList: { posts: Record<string, PostObj>, postCount: number, fileCount: number, id: string } =
-    {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
+let dlList: DownloadObj = {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
 let limit: number | null = 0;
 let isIgnoreFree = false;
 
@@ -303,7 +302,6 @@ function createFile(filename: string): string {
     return `<span><a href="${helper.encodeLink(`./${filename}`)}">${filename}</a></span>`;
 }
 
-type PostObj = Readonly<{ info: string, items: DlInfo[], html: string, cover?: DlInfo }>;
 type PostInfo = {
     title: string,
     feeRequired: number,
@@ -339,4 +337,3 @@ type TextBlock = { type: "p" | "header", text: string };
 type EmbedBlock = { type: "embed", embedId: string };
 type UnknownBlock = { type: "unknown" }; // 他の型がありそうなので入れてる default句で使ってるのでコンパイルすると型が消えて他のを除いた全部に対応する
 type Block = ImageBlock | FileBlock | TextBlock | EmbedBlock | UnknownBlock;
-type DlInfo = { url: string, filename: string };
