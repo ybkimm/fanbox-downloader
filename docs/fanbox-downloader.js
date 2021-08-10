@@ -1,26 +1,24 @@
-let dlList = { posts: {}, postCount: 0, fileCount: 0, id: 'undefined' };
+let dlList = {posts: {}, postCount: 0, fileCount: 0, id: 'undefined'};
 let limit = 0;
 let isIgnoreFree = false;
 let isEco = true;
 const getImageName = (img, title, index) => `${title} ${index + 1}.${img.extension}`;
 const getFileName = (file, title, index) => `${title} ${file.name}.${file.extension}`;
+
 export async function main() {
     var _a, _b, _c, _d;
     if (window.location.origin === "https://downloads.fanbox.cc") {
         createDownloadUI();
         return;
-    }
-    else if (window.location.origin === "https://www.fanbox.cc") {
+    } else if (window.location.origin === "https://www.fanbox.cc") {
         const userId = (_a = window.location.href.match(/fanbox.cc\/@([^\/]*)/)) === null || _a === void 0 ? void 0 : _a[1];
         const postId = (_b = window.location.href.match(/fanbox.cc\/@.*\/posts\/(\d*)/)) === null || _b === void 0 ? void 0 : _b[1];
         await searchBy(userId, postId);
-    }
-    else if (window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) {
+    } else if (window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) {
         const userId = (_c = window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) === null || _c === void 0 ? void 0 : _c[1];
         const postId = (_d = window.location.href.match(/.*\.fanbox\.cc\/posts\/(\d*)/)) === null || _d === void 0 ? void 0 : _d[1];
         await searchBy(userId, postId);
-    }
-    else {
+    } else {
         alert(`ここどこですか(${window.location.href})`);
         return;
     }
@@ -32,6 +30,7 @@ export async function main() {
         document.location.href = "https://downloads.fanbox.cc";
     }
 }
+
 async function searchBy(userId, postId) {
     if (!userId) {
         alert("しらないURL");
@@ -43,6 +42,7 @@ async function searchBy(userId, postId) {
     else
         await getItemsById(userId);
 }
+
 function addByPostListUrl(url, eco) {
     const postList = JSON.parse(fetchUrl(url));
     const items = postList.body.items;
@@ -52,13 +52,13 @@ function addByPostListUrl(url, eco) {
         if (eco) {
             console.log(items[i]);
             addByPostInfo(items[i]);
-        }
-        else {
+        } else {
             addByPostInfo(getPostInfoById(items[i].id));
         }
     }
     return postList.body.nextUrl;
 }
+
 function fetchUrl(url) {
     const request = new XMLHttpRequest();
     request.open('GET', url, false);
@@ -66,6 +66,7 @@ function fetchUrl(url) {
     request.send(null);
     return request.responseText;
 }
+
 async function getItemsById(postId) {
     isIgnoreFree = confirm("無料コンテンツを省く？");
     const limitBase = prompt("取得制限数を入力 キャンセルで全て取得");
@@ -77,9 +78,11 @@ async function getItemsById(postId) {
         await sleep(100);
     }
 }
+
 function getPostInfoById(postId) {
     return JSON.parse(fetchUrl(`https://api.fanbox.cc/post.info?postId=${postId}`)).body;
 }
+
 function addByPostInfo(postInfo) {
     if (!postInfo || (isIgnoreFree && (postInfo.feeRequired === 0))) {
         return;
@@ -95,14 +98,12 @@ function addByPostInfo(postInfo) {
         for (let i = 0; i < images.length; i++) {
             addUrl(postObj, images[i].originalUrl, getImageName(images[i], title, i));
         }
-    }
-    else if (postInfo.type === "file") {
+    } else if (postInfo.type === "file") {
         const files = postInfo.body.files;
         for (let i = 0; i < files.length; i++) {
             addUrl(postObj, files[i].url, getFileName(files[i], title, i));
         }
-    }
-    else if (postInfo.type === "article") {
+    } else if (postInfo.type === "article") {
         const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks);
         for (let i = 0; i < images.length; i++) {
             addUrl(postObj, images[i].originalUrl, getImageName(images[i], title, i));
@@ -111,19 +112,19 @@ function addByPostInfo(postInfo) {
         for (let i = 0; i < files.length; i++) {
             addUrl(postObj, files[i].url, getFileName(files[i], title, i));
         }
-    }
-    else {
+    } else {
         console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
     }
     if (limit != null)
         limit--;
 }
+
 function createPostObj(postInfo) {
     const info = createInfoFromPostInfo(postInfo);
     const coverUrl = postInfo.coverImageUrl;
-    const cover = coverUrl ? { url: coverUrl, filename: `cover.${coverUrl.split('.').pop()}` } : undefined;
+    const cover = coverUrl ? {url: coverUrl, filename: `cover.${coverUrl.split('.').pop()}`} : undefined;
     const html = createPostHtmlFromPostInfo(postInfo, cover === null || cover === void 0 ? void 0 : cover.filename);
-    const postObj = { info, items: [], html, cover };
+    const postObj = {info, items: [], html, cover};
     let title = postInfo.title;
     if (dlList.posts[title]) {
         let i = 2;
@@ -134,10 +135,12 @@ function createPostObj(postInfo) {
     dlList.posts[title] = postObj;
     return postObj;
 }
+
 function addUrl(postObj, url, filename) {
     dlList.fileCount++;
-    postObj.items.push({ url, filename });
+    postObj.items.push({url, filename});
 }
+
 function escapeFileName(filename) {
     return filename
         .replace(/\//g, "／")
@@ -150,27 +153,42 @@ function escapeFileName(filename) {
         .replace(/>/g, "＞")
         .replace(/\|/g, "｜");
 }
-function escapeLink(path) {
-    return path.split('/').map(it => escapeFileName(it).replaceAll(/[;,/?:@&=+$#]/g, encodeURIComponent)).join('/');
+
+function escapeLink(...paths) {
+    return paths.map(it => escapeFileName(it).replaceAll(/[;,/?:@&=+$#]/g, encodeURIComponent)).join('/');
 }
+
 function convertImageMap(imageMap, blocks) {
     const imageOrder = blocks.filter((it) => it.type === "image").map(it => it.imageId);
-    const imageKeyOrder = (s) => { var _a; return (_a = imageOrder.indexOf(s)) !== null && _a !== void 0 ? _a : imageOrder.length; };
+    const imageKeyOrder = (s) => {
+        var _a;
+        return (_a = imageOrder.indexOf(s)) !== null && _a !== void 0 ? _a : imageOrder.length;
+    };
     return Object.keys(imageMap).sort((a, b) => imageKeyOrder(a) - imageKeyOrder(b)).map(it => imageMap[it]);
 }
+
 function convertFileMap(fileMap, blocks) {
     const fileOrder = blocks.filter((it) => it.type === 'file').map(it => it.fileId);
-    const fileKeyOrder = (s) => { var _a; return (_a = fileOrder.indexOf(s)) !== null && _a !== void 0 ? _a : fileOrder.length; };
+    const fileKeyOrder = (s) => {
+        var _a;
+        return (_a = fileOrder.indexOf(s)) !== null && _a !== void 0 ? _a : fileOrder.length;
+    };
     return Object.keys(fileMap).sort((a, b) => fileKeyOrder(a) - fileKeyOrder(b)).map(it => fileMap[it]);
 }
+
 function convertEmbedMap(embedMap, blocks) {
     const embedOrder = blocks.filter((it) => it.type === "embed").map(it => it.embedId);
-    const embedKeyOrder = (s) => { var _a; return (_a = embedOrder.indexOf(s)) !== null && _a !== void 0 ? _a : embedOrder.length; };
+    const embedKeyOrder = (s) => {
+        var _a;
+        return (_a = embedOrder.indexOf(s)) !== null && _a !== void 0 ? _a : embedOrder.length;
+    };
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
 }
+
 async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 async function script(url) {
     return new Promise((resolve, reject) => {
         let script = document.createElement("script");
@@ -180,23 +198,24 @@ async function script(url) {
         document.head.appendChild(script);
     });
 }
-async function download({ url, filename }, limit) {
+
+async function download({url, filename}, limit) {
     if (limit < 0)
         return null;
     try {
         const blob = await fetch(url)
             .catch(e => {
-            throw new Error(e);
-        })
+                throw new Error(e);
+            })
             .then(r => r.ok ? r.blob() : null);
-        return blob ? blob : await download({ url, filename }, limit - 1);
-    }
-    catch (_) {
+        return blob ? blob : await download({url, filename}, limit - 1);
+    } catch (_) {
         console.error(`通信エラー: ${filename}, ${url}`);
         await sleep(1000);
-        return await download({ url, filename }, limit - 1);
+        return await download({url, filename}, limit - 1);
     }
 }
+
 async function downloadZip(json, progress, log) {
     dlList = JSON.parse(json);
     await script('https://cdn.jsdelivr.net/npm/web-streams-polyfill@2.0.2/dist/ponyfill.min.js');
@@ -228,8 +247,7 @@ async function downloadZip(json, progress, log) {
                     const blob = await download(dl, 1);
                     if (blob) {
                         ctrl.enqueue(new File([blob], `${path}/${escapeFileName(dl.filename)}`));
-                    }
-                    else {
+                    } else {
                         console.error(`${dl.filename}(${dl.url})のダウンロードに失敗、読み飛ばすよ`);
                         log(`${dl.filename}のダウンロードに失敗`);
                     }
@@ -250,6 +268,7 @@ async function downloadZip(json, progress, log) {
     const pump = () => reader.read().then((res) => res.done ? writer.close() : writer.write(res.value).then(pump));
     await pump();
 }
+
 function createDownloadUI() {
     document.head.innerHTML = "";
     document.body.innerHTML = "";
@@ -328,6 +347,7 @@ function createDownloadUI() {
         downloadZip(input.value, setProgress, textLog).then(() => window.removeEventListener("beforeunload", loadingFun));
     };
 }
+
 function createInfoFromPostInfo(postInfo) {
     const txt = (() => {
         switch (postInfo.type) {
@@ -348,6 +368,7 @@ function createInfoFromPostInfo(postInfo) {
         `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
         `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n${txt}\n`;
 }
+
 function createPostHtmlFromPostInfo(postInfo, coverFilename) {
     const header = (coverFilename ? createImg(coverFilename) : '') + createTitle(postInfo.title);
     const body = (() => {
@@ -386,8 +407,7 @@ function createPostHtmlFromPostInfo(postInfo, coverFilename) {
             case "text":
                 if (postInfo.body.text) {
                     return postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-                }
-                else if (postInfo.body.blocks) {
+                } else if (postInfo.body.blocks) {
                     return postInfo.body.blocks.map(it => {
                         switch (it.type) {
                             case 'header':
@@ -398,8 +418,7 @@ function createPostHtmlFromPostInfo(postInfo, coverFilename) {
                                 return '';
                         }
                     }).join("<br>\n");
-                }
-                else
+                } else
                     return '';
             default:
                 return `undefined type\n`;
@@ -407,37 +426,41 @@ function createPostHtmlFromPostInfo(postInfo, coverFilename) {
     })();
     return header + body;
 }
+
 function createRootHtmlFromPosts() {
     return Object.entries(dlList.posts).map(([title, post]) => {
         const escapedTitle = escapeFileName(title);
-        return `<a class="hl" href="${escapeLink(`./${escapedTitle}/index.html`)}"><div class="root card">\n` +
+        return `<a class="hl" href="${escapeLink('.', escapedTitle, 'index.html')}"><div class="root card">\n` +
             createCoverHtmlFromPost(escapedTitle, post) +
             `<div class="card-body"><h5 class="card-title">${title}</h5></div>\n</div></a><br>\n`;
     }).join('\n');
 }
+
 function createCoverHtmlFromPost(escapedTitle, post) {
     if (post.cover) {
-        return `<img class="card-img-top gray-card" src="${escapeLink(`./${escapedTitle}/${post.cover.filename}`)}"/>\n`;
-    }
-    else if (post.items.length > 0) {
+        return `<img class="card-img-top gray-card" src="${escapeLink('.', escapedTitle, post.cover.filename)}"/>\n`;
+    } else if (post.items.length > 0) {
         return '<div class="carousel slide" data-bs-ride="carousel" data-interval="1000"><div class="carousel-inner">\n<div class="carousel-item active">' +
-            post.items.map(it => `<div class="d-flex justify-content-center gray-carousel"><img src="${escapeLink(`./${escapedTitle}/${it.filename}`)}" class="d-block pd-carousel" height="180px"/></div>`).join('</div>\n<div class="carousel-item">') +
+            post.items.map(it => `<div class="d-flex justify-content-center gray-carousel"><img src="${escapeLink('.', escapedTitle, it.filename)}" class="d-block pd-carousel" height="180px"/></div>`).join('</div>\n<div class="carousel-item">') +
             '</div>\n</div></div>\n';
-    }
-    else {
+    } else {
         return `<img class="card-img-top gray-card" />\n`;
     }
 }
+
 function createTitle(title) {
     return `<h5>${title}</h5>\n`;
 }
+
 function createImg(filename) {
-    return `<a class="hl" href="${escapeLink(`./${filename}`)}"><div class="post card">\n` +
-        `<img class="card-img-top" src="${escapeLink(`./${filename}`)}"/>\n</div></a>`;
+    return `<a class="hl" href="${escapeLink('.', filename)}"><div class="post card">\n` +
+        `<img class="card-img-top" src="${escapeLink('.', filename)}"/>\n</div></a>`;
 }
+
 function createFile(filename) {
-    return `<span><a href="${escapeLink(`./${filename}`)}">${filename}</a></span>`;
+    return `<span><a href="${escapeLink('.', filename)}">${filename}</a></span>`;
 }
+
 function createHtml(title, body) {
     return `<!DOCTYPE html>\n<html lang="ja">\n<head>\n<meta charset="utf-8" />\n<title>${title}</title>\n` +
         '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossOrigin="anonymous">\n' +

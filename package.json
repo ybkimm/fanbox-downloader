@@ -21,6 +21,6 @@
     "webpack-cli": "^4.7.2"
   },
   "dependencies": {
-    "download-helper": "git+https://github.com/furubarug/download-helper.git"
+    "download-helper": "github:furubarug/download-helper"
   }
 }

@@ -293,13 +293,13 @@ function createTitle(title: string): string {
 
 // 画像表示
 function createImg(filename: string): string {
-    return `<a class="hl" href="${helper.encodeLink(`./${filename}`)}"><div class="post card">\n` +
-        `<img class="card-img-top" src="${helper.encodeLink(`./${filename}`)}"/>\n</div></a>`;
+    return `<a class="hl" href="${helper.encodeLink('.', filename)}"><div class="post card">\n` +
+        `<img class="card-img-top" src="${helper.encodeLink('.', filename)}"/>\n</div></a>`;
 }
 
 // ファイル表示
 function createFile(filename: string): string {
-    return `<span><a href="${helper.encodeLink(`./${filename}`)}">${filename}</a></span>`;
+    return `<span><a href="${helper.encodeLink('.', filename)}">${filename}</a></span>`;
 }
 
 type PostInfo = {
