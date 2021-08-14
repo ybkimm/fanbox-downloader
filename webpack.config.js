@@ -4,11 +4,11 @@ module.exports = {
     mode: "production",
     entry: './fanbox-downloader.ts',
     output: {
-        filename: 'fanbox.js',
+        filename: 'fanbox-downloader.min.js',
         path: path.resolve(__dirname, 'docs'),
-        library: 'main',
-        libraryTarget: 'window',
-        libraryExport: 'main'
+        library: {
+            type: 'module',
+        },
     },
     module: {
         rules: [{
@@ -18,5 +18,8 @@ module.exports = {
     },
     resolve: {
         extensions: ['.ts', '.js']
-    }
+    },
+    experiments: {
+        outputModule: true,
+    },
 }
