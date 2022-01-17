@@ -152,7 +152,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
             const fileTags = files.map(it => utils.isImage(it.getEncodedExtension()) ? postObject.getImageLinkTag(it) : postObject.getFileLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             postObject.setHtml(header + fileTags + "<br>\n" + text);
-            informationText = 'file type text is not implemented\n';
+            informationText = `${postInfo.body.text}\n`;
             break;
         }
         case "article": {
@@ -250,7 +250,7 @@ type PostInfo = {
     body: { text: string, images: ImageInfo[] },
 } | {
     type: "file",
-    body: { text: string, files: FileInfo[] }, // TODO textが存在するか要確認
+    body: { text: string, files: FileInfo[] },
 } | {
     type: "article",
     body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, embedMap: Record<string, EmbedInfo>, blocks: Block[] },
