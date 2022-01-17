@@ -7,7 +7,7 @@ let isIgnoreFree = false;
 const isEco = true;
 
 const utils = new DownloadUtils();
-const helper = new DownloadHelper(utils);
+const helper = new DownloadHelper(utils); // TODO ローカル変数への移動(sleepをutil側へ移動する)
 
 // メイン
 export async function main() {
@@ -30,7 +30,7 @@ export async function main() {
     if (!downloadObject) return;
     const json = downloadObject.stringify();
     console.log(json);
-    await navigator.clipboard.writeText(json);
+    await navigator.clipboard.writeText(json); // TODO windowが非アクティブ時の対応
     alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
     if (confirm("downloads.fanbox.ccに遷移する？")) {
         document.location.href = "https://downloads.fanbox.cc";
