@@ -29,10 +29,25 @@ export async function main() {
     if (!downloadObject) return;
     const json = downloadObject.stringify();
     console.log(json);
-    await navigator.clipboard.writeText(json); // TODO windowが非アクティブ時の対応
-    alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
-    if (confirm("downloads.fanbox.ccに遷移する？")) {
-        document.location.href = "https://downloads.fanbox.cc";
+    const jsonCopied = () => {
+        alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
+        if (confirm("downloads.fanbox.ccに遷移する？")) {
+            document.location.href = "https://downloads.fanbox.cc";
+        }
+    };
+    try {
+        await navigator.clipboard.writeText(json);
+        jsonCopied();
+    } catch (_) {
+        document.body.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(json);
+                jsonCopied();
+            } catch (_) {
+                alert("jsonコピーに失敗しました。もう一度実行するかコンソールからコピーしてね");
+            }
+        }, {once: true});
+        alert("jsonコピーに失敗しました。画面の適当なとこをクリック！");
     }
 }
 
@@ -254,6 +269,7 @@ type PostInfo = {
 } | {
     type: "article",
     body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, embedMap: Record<string, EmbedInfo>, blocks: Block[] },
+    // TODO embedMap, urlEmbedMapの対応
 } | {
     type: "text",
     body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
