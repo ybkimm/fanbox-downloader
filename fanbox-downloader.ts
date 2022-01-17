@@ -7,13 +7,12 @@ let isIgnoreFree = false;
 const isEco = true;
 
 const utils = new DownloadUtils();
-const helper = new DownloadHelper(utils); // TODO ローカル変数への移動(sleepをutil側へ移動する)
 
 // メイン
 export async function main() {
     let downloadObject: DownloadObject | null = null;
     if (window.location.origin === "https://downloads.fanbox.cc") {
-        await helper.createDownloadUI('fanbox-downloader');
+        await new DownloadHelper(utils).createDownloadUI('fanbox-downloader');
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
         const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
@@ -100,7 +99,7 @@ async function getItemsById(downloadObject: DownloadObject, postId: string) {
     for (; nextUrl != null; count++) {
         console.log(count + "回目");
         nextUrl = addByPostListUrl(downloadObject, nextUrl, isEco);
-        await helper.sleep(100);
+        await utils.sleep(100);
     }
 }
 
