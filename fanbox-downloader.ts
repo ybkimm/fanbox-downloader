@@ -133,7 +133,10 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
         }
         return `<h5>${postName}</h5>\n<br>\n`;
     })(postInfo.coverImageUrl);
-    postObject.setInfo(createInfoFromPostInfo(postInfo));
+    const informationTextBase = `id: ${postInfo.id}\ntitle: ${postInfo.title}\nfee: ${postInfo.feeRequired}\n` +
+        `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
+        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n`;
+    let informationText: string;
 
     switch (postInfo.type) {
         case "image": {
@@ -141,6 +144,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
             const imageTags = images.map(it => postObject.getImageLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             postObject.setHtml(header + imageTags + "<br>\n" + text);
+            informationText = `${postInfo.body.text}\n`;
             break;
         }
         case "file": {
@@ -148,6 +152,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
             const fileTags = files.map(it => utils.isImage(it.getEncodedExtension()) ? postObject.getImageLinkTag(it) : postObject.getFileLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             postObject.setHtml(header + fileTags + "<br>\n" + text);
+            informationText = 'file type text is not implemented\n';
             break;
         }
         case "article": {
@@ -174,12 +179,17 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                 }
             }).join("<br>\n");
             postObject.setHtml(header + body);
+            informationText = postInfo.body.blocks
+                .filter((it): it is TextBlock => it.type === "p" || it.type === "header")
+                .map(it => it.text)
+                .join("\n") + '\n';
             break;
         }
         case "text": {// FIXME 型が分からないので適当に書いてる
             let body = '';
             if (postInfo.body.text) {
                 body = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+                informationText = postInfo.body.text;
             } else if (postInfo.body.blocks) {
                 body = postInfo.body.blocks.map(it => {
                     switch (it.type) {
@@ -191,14 +201,19 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                             return '';
                     }
                 }).join("<br>\n");
-            }
+                informationText = postInfo.body.blocks
+                    .map(it => it.type == 'header' || it.type == 'p' ? it.text : '')
+                    .join("\n") + '\n';
+            } else informationText = 'undefined text type\n';
             postObject.setHtml(header + body);
             break;
         }
         default:
+            informationText = `不明なタイプ\n${postInfo.type}@${postInfo.id}\n`;
             console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
             break;
     }
+    postObject.setInfo(informationTextBase + informationText);
     if (limit != null) limit--;
 }
 
@@ -218,33 +233,6 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     const embedOrder = blocks.filter((it): it is EmbedBlock => it.type === "embed").map(it => it.embedId);
     const embedKeyOrder = (s: string) => embedOrder.indexOf(s) ?? embedOrder.length;
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
-}
-
-/**
- * postInfoオブジェクトから投稿情報テキストを作る
- * TODO switch部分を共通部分へ移す
- * @param postInfo 投稿情報オブジェクト
- * @return 投稿情報テキスト
- */
-function createInfoFromPostInfo(postInfo: PostInfo): string {
-    const txt: string = (() => {
-        switch (postInfo.type) {
-            case "image":
-                return `${postInfo.body.text}\n`;
-            case "file":
-                return `not implemented\n`;
-            case "article":
-                return postInfo.body.blocks
-                    .filter((it): it is TextBlock => it.type === "p" || it.type === "header")
-                    .map(it => it.text)
-                    .join("\n");
-            default:
-                return `undefined type\n`;
-        }
-    })();
-    return `id: ${postInfo.id}\ntitle: ${postInfo.title}\nfee: ${postInfo.feeRequired}\n` +
-        `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
-        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n${txt}\n`;
 }
 
 type PostInfo = {
