@@ -145,7 +145,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
         }
         case "file": {
             const files = postInfo.body.files.map(it => postObject.addFile(it.name, it.extension, it.url));
-            const fileTags = files.map(it => postObject.getFileLinkTag(it)).join("<br>\n");
+            const fileTags = files.map(it => utils.isImage(it.getEncodedExtension()) ? postObject.getImageLinkTag(it) : postObject.getFileLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             postObject.setHtml(header + fileTags + "<br>\n" + text);
             break;
@@ -162,7 +162,8 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                     case 'header':
                         return `<h2><span>${it.text}</span></h2>`;
                     case 'file':
-                        return postObject.getFileLinkTag(files[cntFile++]);
+                        const target = files[cntFile++];
+                        return utils.isImage(target.getEncodedExtension()) ? postObject.getImageLinkTag(target) : postObject.getFileLinkTag(target);
                     case 'image':
                         return postObject.getImageLinkTag(images[cntImg++]);
                     case "embed":
