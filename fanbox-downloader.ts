@@ -7,13 +7,12 @@ let isIgnoreFree = false;
 const isEco = true;
 
 const utils = new DownloadUtils();
-const helper = new DownloadHelper(utils); // TODO ローカル変数への移動(sleepをutil側へ移動する)
 
 // メイン
 export async function main() {
     let downloadObject: DownloadObject | null = null;
     if (window.location.origin === "https://downloads.fanbox.cc") {
-        await helper.createDownloadUI('fanbox-downloader');
+        await new DownloadHelper(utils).createDownloadUI('fanbox-downloader');
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
         const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
@@ -30,10 +29,25 @@ export async function main() {
     if (!downloadObject) return;
     const json = downloadObject.stringify();
     console.log(json);
-    await navigator.clipboard.writeText(json); // TODO windowが非アクティブ時の対応
-    alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
-    if (confirm("downloads.fanbox.ccに遷移する？")) {
-        document.location.href = "https://downloads.fanbox.cc";
+    const jsonCopied = () => {
+        alert("jsonをコピーしました。downloads.fanbox.ccで実行して貼り付けてね");
+        if (confirm("downloads.fanbox.ccに遷移する？")) {
+            document.location.href = "https://downloads.fanbox.cc";
+        }
+    };
+    try {
+        await navigator.clipboard.writeText(json);
+        jsonCopied();
+    } catch (_) {
+        document.body.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(json);
+                jsonCopied();
+            } catch (_) {
+                alert("jsonコピーに失敗しました。もう一度実行するかコンソールからコピーしてね");
+            }
+        }, {once: true});
+        alert("jsonコピーに失敗しました。画面の適当なとこをクリック！");
     }
 }
 
@@ -100,7 +114,7 @@ async function getItemsById(downloadObject: DownloadObject, postId: string) {
     for (; nextUrl != null; count++) {
         console.log(count + "回目");
         nextUrl = addByPostListUrl(downloadObject, nextUrl, isEco);
-        await helper.sleep(100);
+        await utils.sleep(100);
     }
 }
 
@@ -132,23 +146,28 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
             const ext = url.split('.').pop() ?? "";
             return `${postObject.getImageLinkTag(postObject.setCover("cover", ext, url))}<h5>${postName}</h5>\n`
         }
-        return `<h5>${postName}</h5>\n`;
+        return `<h5>${postName}</h5>\n<br>\n`;
     })(postInfo.coverImageUrl);
-    postObject.setInfo(createInfoFromPostInfo(postInfo));
+    const informationTextBase = `id: ${postInfo.id}\ntitle: ${postInfo.title}\nfee: ${postInfo.feeRequired}\n` +
+        `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
+        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n`;
+    let informationText: string;
 
     switch (postInfo.type) {
         case "image": {
             const images = postInfo.body.images.map(it => postObject.addFile(postName, it.extension, it.originalUrl));
             const imageTags = images.map(it => postObject.getImageLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-            postObject.setHtml(header + imageTags + text);
+            postObject.setHtml(header + imageTags + "<br>\n" + text);
+            informationText = `${postInfo.body.text}\n`;
             break;
         }
         case "file": {
             const files = postInfo.body.files.map(it => postObject.addFile(it.name, it.extension, it.url));
-            const fileTags = files.map(it => postObject.getFileLinkTag(it)).join("<br>\n");
+            const fileTags = files.map(it => utils.isImage(it.getEncodedExtension()) ? postObject.getImageLinkTag(it) : postObject.getFileLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-            postObject.setHtml(header + fileTags + text);
+            postObject.setHtml(header + fileTags + "<br>\n" + text);
+            informationText = `${postInfo.body.text}\n`;
             break;
         }
         case "article": {
@@ -163,7 +182,8 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                     case 'header':
                         return `<h2><span>${it.text}</span></h2>`;
                     case 'file':
-                        return postObject.getFileLinkTag(files[cntFile++]);
+                        const target = files[cntFile++];
+                        return utils.isImage(target.getEncodedExtension()) ? postObject.getImageLinkTag(target) : postObject.getFileLinkTag(target);
                     case 'image':
                         return postObject.getImageLinkTag(images[cntImg++]);
                     case "embed":
@@ -174,12 +194,17 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                 }
             }).join("<br>\n");
             postObject.setHtml(header + body);
+            informationText = postInfo.body.blocks
+                .filter((it): it is TextBlock => it.type === "p" || it.type === "header")
+                .map(it => it.text)
+                .join("\n") + '\n';
             break;
         }
         case "text": {// FIXME 型が分からないので適当に書いてる
             let body = '';
             if (postInfo.body.text) {
                 body = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+                informationText = postInfo.body.text;
             } else if (postInfo.body.blocks) {
                 body = postInfo.body.blocks.map(it => {
                     switch (it.type) {
@@ -191,14 +216,19 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                             return '';
                     }
                 }).join("<br>\n");
-            }
+                informationText = postInfo.body.blocks
+                    .map(it => it.type == 'header' || it.type == 'p' ? it.text : '')
+                    .join("\n") + '\n';
+            } else informationText = 'undefined text type\n';
             postObject.setHtml(header + body);
             break;
         }
         default:
+            informationText = `不明なタイプ\n${postInfo.type}@${postInfo.id}\n`;
             console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
             break;
     }
+    postObject.setInfo(informationTextBase + informationText);
     if (limit != null) limit--;
 }
 
@@ -220,33 +250,6 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
 }
 
-/**
- * postInfoオブジェクトから投稿情報テキストを作る
- * TODO switch部分を共通部分へ移す
- * @param postInfo 投稿情報オブジェクト
- * @return 投稿情報テキスト
- */
-function createInfoFromPostInfo(postInfo: PostInfo): string {
-    const txt: string = (() => {
-        switch (postInfo.type) {
-            case "image":
-                return `${postInfo.body.text}\n`;
-            case "file":
-                return `not implemented\n`;
-            case "article":
-                return postInfo.body.blocks
-                    .filter((it): it is TextBlock => it.type === "p" || it.type === "header")
-                    .map(it => it.text)
-                    .join("\n");
-            default:
-                return `undefined type\n`;
-        }
-    })();
-    return `id: ${postInfo.id}\ntitle: ${postInfo.title}\nfee: ${postInfo.feeRequired}\n` +
-        `publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
-        `tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n${txt}\n`;
-}
-
 type PostInfo = {
     title: string,
     feeRequired: number,
@@ -262,10 +265,11 @@ type PostInfo = {
     body: { text: string, images: ImageInfo[] },
 } | {
     type: "file",
-    body: { text: string, files: FileInfo[] }, // TODO textが存在するか要確認
+    body: { text: string, files: FileInfo[] },
 } | {
     type: "article",
     body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, embedMap: Record<string, EmbedInfo>, blocks: Block[] },
+    // TODO embedMap, urlEmbedMapの対応
 } | {
     type: "text",
     body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
