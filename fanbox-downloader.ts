@@ -131,7 +131,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
             const ext = url.split('.').pop() ?? "";
             return `${postObject.getImageLinkTag(postObject.setCover("cover", ext, url))}<h5>${postName}</h5>\n`
         }
-        return `<h5>${postName}</h5>\n`;
+        return `<h5>${postName}</h5>\n<br>\n`;
     })(postInfo.coverImageUrl);
     postObject.setInfo(createInfoFromPostInfo(postInfo));
 
@@ -140,14 +140,14 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
             const images = postInfo.body.images.map(it => postObject.addFile(postName, it.extension, it.originalUrl));
             const imageTags = images.map(it => postObject.getImageLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-            postObject.setHtml(header + imageTags + text);
+            postObject.setHtml(header + imageTags + "<br>\n" + text);
             break;
         }
         case "file": {
             const files = postInfo.body.files.map(it => postObject.addFile(it.name, it.extension, it.url));
             const fileTags = files.map(it => postObject.getFileLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-            postObject.setHtml(header + fileTags + text);
+            postObject.setHtml(header + fileTags + "<br>\n" + text);
             break;
         }
         case "article": {
