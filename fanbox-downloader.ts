@@ -74,7 +74,7 @@ async function searchBy(userId: string | undefined, postId: string | undefined):
  * @param eco trueならpostInfoを個別に取得しない
  */
 function addByPostListUrl(downloadObject: DownloadObject, url: string, eco: boolean) {
-    const postList = JSON.parse(fetchUrl(url));
+    const postList = utils.httpGetAs<{ body: { items: PostInfo[], nextUrl: string | null } }>(url);
     const items = postList.body.items;
 
     console.log("投稿の数:" + items.length);
@@ -90,18 +90,6 @@ function addByPostListUrl(downloadObject: DownloadObject, url: string, eco: bool
 }
 
 /**
- * HTTP GET用
- * @param url
- */
-function fetchUrl(url: string) {
-    const request = new XMLHttpRequest();
-    request.open('GET', url, false);
-    request.withCredentials = true;
-    request.send(null);
-    return request.responseText;
-}
-
-/**
  * 投稿IDからitemsを得る
  * @param downloadObject 結果格納用オブジェクト
  * @param postId 投稿ID
@@ -110,8 +98,8 @@ async function getItemsById(downloadObject: DownloadObject, postId: string) {
     isIgnoreFree = confirm("無料コンテンツを省く？");
     const limitBase = prompt("取得制限数を入力 キャンセルで全て取得");
     limit = limitBase ? Number.parseInt(limitBase) : null;
-    let count = 1, nextUrl = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
-    for (; nextUrl != null; count++) {
+    let count = 1, nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
+    for (; nextUrl; count++) {
         console.log(count + "回目");
         nextUrl = addByPostListUrl(downloadObject, nextUrl, isEco);
         await utils.sleep(100);
@@ -123,7 +111,7 @@ async function getItemsById(downloadObject: DownloadObject, postId: string) {
  * @param postId 投稿ID
  */
 function getPostInfoById(postId: string): PostInfo | undefined {
-    return JSON.parse(fetchUrl(`https://api.fanbox.cc/post.info?postId=${postId}`)).body;
+    return utils.httpGetAs<{ body: PostInfo | undefined }>(`https://api.fanbox.cc/post.info?postId=${postId}`).body;
 }
 
 /**
@@ -164,7 +152,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
         }
         case "file": {
             const files = postInfo.body.files.map(it => postObject.addFile(it.name, it.extension, it.url));
-            const fileTags = files.map(it => utils.isImage(it.getEncodedExtension()) ? postObject.getImageLinkTag(it) : postObject.getFileLinkTag(it)).join("<br>\n");
+            const fileTags = files.map(it => postObject.getAutoAssignedLinkTag(it)).join("<br>\n");
             const text = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
             postObject.setHtml(header + fileTags + "<br>\n" + text);
             informationText = `${postInfo.body.text}\n`;
@@ -182,8 +170,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
                     case 'header':
                         return `<h2><span>${it.text}</span></h2>`;
                     case 'file':
-                        const target = files[cntFile++];
-                        return utils.isImage(target.getEncodedExtension()) ? postObject.getImageLinkTag(target) : postObject.getFileLinkTag(target);
+                        return postObject.getAutoAssignedLinkTag(files[cntFile++]);
                     case 'image':
                         return postObject.getImageLinkTag(images[cntImg++]);
                     case "embed":
