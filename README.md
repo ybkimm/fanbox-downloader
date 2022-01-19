@@ -13,6 +13,7 @@ javascript:import("https://furubarug.github.io/fanbox-downloader/fanbox-download
 
 ### 既知の問題
 - 4GB超えるとZIP解凍時にエラーが出る（解凍ファイルに問題はないけど、うるさいツールだと解凍してくれないかも）
+- ファイル表示のリンクで`download`属性が機能してない（ファイル名重複時に元ファイル名に戻せない）
 
 ### fork後の変更点
 - 対応するURLを少し増やした
