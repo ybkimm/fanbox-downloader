@@ -61,19 +61,47 @@ async function searchBy(userId: string | undefined, postId: string | undefined):
         alert("しらないURL");
         return null;
     }
+    const plans = utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${userId}`);
+    const feeMapper = new Map<number, string>();
+    plans.body?.forEach(plan => feeMapper.set(plan.fee, plan.title));
+    const definedTags = utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${userId}`).body?.map(tag => tag.tag) ?? [];
+    const planTags = plans.body?.map(plan => plan.title) ?? []
+    const tags = [...planTags, ...definedTags];
+    const tagManage = new TagManage(tags, feeMapper);
     const downloadObject = new DownloadObject(userId, utils);
-    if (postId) addByPostInfo(downloadObject, getPostInfoById(postId));
-    else await getItemsById(downloadObject, userId);
+    downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
+    if (postId) addByPostInfo(downloadObject, tagManage, getPostInfoById(postId));
+    else await getItemsById(downloadObject, tagManage, userId);
+    downloadObject.setTags(tagManage.getTags());
     return downloadObject;
+}
+
+/**
+ * 投稿IDからitemsを得る
+ * @param downloadObject 結果格納用オブジェクト
+ * @param tagManage タグ管理クラスのインスタンス
+ * @param postId 投稿ID
+ */
+async function getItemsById(downloadObject: DownloadObject, tagManage: TagManage, postId: string) {
+    isIgnoreFree = confirm("無料コンテンツを省く？");
+    const limitBase = prompt("取得制限数を入力 キャンセルで全て取得");
+    limit = limitBase ? Number.parseInt(limitBase) : null;
+    let count = 1, nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
+    for (; nextUrl; count++) {
+        console.log(count + "回目");
+        nextUrl = addByPostListUrl(downloadObject, tagManage, nextUrl, isEco);
+        await utils.sleep(100);
+    }
 }
 
 /**
  * 投稿リストURLからURLリストに追加
  * @param downloadObject
+ * @param tagManage タグ管理クラスのインスタンス
  * @param url
  * @param eco trueならpostInfoを個別に取得しない
  */
-function addByPostListUrl(downloadObject: DownloadObject, url: string, eco: boolean) {
+function addByPostListUrl(downloadObject: DownloadObject, tagManage: TagManage, url: string, eco: boolean) {
     const postList = utils.httpGetAs<{ body: { items: PostInfo[], nextUrl: string | null } }>(url);
     const items = postList.body.items;
 
@@ -81,29 +109,12 @@ function addByPostListUrl(downloadObject: DownloadObject, url: string, eco: bool
     for (let i = 0; i < items.length && limit !== 0; i++) {
         if (eco) {
             console.log(items[i]);
-            addByPostInfo(downloadObject, items[i]);
+            addByPostInfo(downloadObject, tagManage, items[i]);
         } else {
-            addByPostInfo(downloadObject, getPostInfoById(items[i].id));
+            addByPostInfo(downloadObject, tagManage, getPostInfoById(items[i].id));
         }
     }
     return postList.body.nextUrl;
-}
-
-/**
- * 投稿IDからitemsを得る
- * @param downloadObject 結果格納用オブジェクト
- * @param postId 投稿ID
- */
-async function getItemsById(downloadObject: DownloadObject, postId: string) {
-    isIgnoreFree = confirm("無料コンテンツを省く？");
-    const limitBase = prompt("取得制限数を入力 キャンセルで全て取得");
-    limit = limitBase ? Number.parseInt(limitBase) : null;
-    let count = 1, nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
-    for (; nextUrl; count++) {
-        console.log(count + "回目");
-        nextUrl = addByPostListUrl(downloadObject, nextUrl, isEco);
-        await utils.sleep(100);
-    }
 }
 
 /**
@@ -117,9 +128,10 @@ function getPostInfoById(postId: string): PostInfo | undefined {
 /**
  * postInfoオブジェクトからURLリストに追加する
  * @param downloadObject 結果格納用オブジェクト
+ * @param tagManage タグ管理クラスのインスタンス
  * @param postInfo 投稿情報オブジェクト
  */
-function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | undefined) {
+function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, postInfo: PostInfo | undefined) {
     if (!postInfo || (isIgnoreFree && (postInfo.feeRequired === 0))) {
         return;
     }
@@ -129,6 +141,7 @@ function addByPostInfo(downloadObject: DownloadObject, postInfo: PostInfo | unde
     }
     const postName = postInfo.title;
     const postObject = downloadObject.addPost(postName);
+    postObject.setTags([tagManage.getTagByFee(postInfo.feeRequired), ...postInfo.tags]);
     const header: string = ((url: string | null) => {
         if (url) {
             const ext = url.split('.').pop() ?? "";
@@ -237,6 +250,40 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
 }
 
+class TagManage {
+    private readonly feeMap: Map<number, string>;
+    private readonly tags: string[];
+
+    constructor(initTags: string[], feeMap: Map<number, string>) {
+        this.feeMap = feeMap;
+        this.tags = feeMap.get(0) == undefined ? ["無料プラン", ...initTags] : [...initTags];
+    }
+
+    getTags(): string[] {
+        return this.tags;
+    }
+
+    getTagByFee(fee: number): string {
+        return this.feeMap.get(fee) ?? (fee > 0 ? `${fee}円` : "無料") + "プラン";
+    }
+}
+
+type Plans = {
+    body?: {
+        id: string,
+        title: string,
+        fee: number,
+        description: string,
+        coverImageUrl: string,
+    }[]
+};
+type Tags = {
+    body?: {
+        tag: string,
+        count: number,
+        coverImageUrl: string,
+    }[]
+};
 type PostInfo = {
     title: string,
     feeRequired: number,
