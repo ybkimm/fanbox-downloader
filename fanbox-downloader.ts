@@ -250,15 +250,19 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
                     case 'image':
                         return postObject.getImageLinkTag(images[cntImg++]);
                     case "embed":
-                        // FIXME 型が分からないので取りあえず文字列に投げて処理
-                        return `<span>${embeds[cntEmbed++]}</span>`;
+                        // FIXME 型が分からないのでJSON化して中身だけ出す
+                        return `<span>${JSON.stringify(embeds[cntEmbed++])}</span>`;
                     case "url_embed": {
                         const urlEmbedInfo = urlEmbeds[cntUrlEmbed++];
-                        if (urlEmbedInfo.type == "html") {
-                            return `\n\n${urlEmbedInfo.html}\n\n`;
-                        } else {
-                            // FIXME 型が分からないので取りあえず文字列に投げて処理
-                            return `<span>${urlEmbedInfo[urlEmbedInfo.type]}</span>`;
+                        switch (urlEmbedInfo.type) {
+                            case "html": // iframeはブラウザ側の問題なのでひとまずそのままにする
+                                return `\n${urlEmbedInfo.html}\n\n`;
+                            case "fanbox.post":
+                                const url = `https://www.fanbox.cc/@${urlEmbedInfo.postInfo.creatorId}/posts/${urlEmbedInfo.postInfo.id}`;
+                                return postObject.getLinkTag(url, urlEmbedInfo.postInfo.title);
+                            default:
+                                // FIXME 型が分からないのでJSON化して中身だけ出す
+                                return `<span>${JSON.stringify(urlEmbedInfo)}</span>`;
                         }
                     }
                     default:

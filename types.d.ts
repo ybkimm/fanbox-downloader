@@ -51,11 +51,10 @@ type PostInfo = {
     body: {
         imageMap: Record<string, ImageInfo>,
         fileMap: Record<string, FileInfo>,
-        embedMap: Record<string, EmbedInfo>,
+        embedMap: Record<string, EmbedInfo>, // TODO embedMapの対応
         urlEmbedMap: Record<string, UrlEmbedInfo>,
         blocks: Block[]
     },
-    // TODO embedMapの対応
 } | {
     type: "text",
     body: { text: string },
@@ -70,6 +69,7 @@ type FileInfo = { url: string, name: string, extension: string };
 type EmbedInfo = any; // FIXME
 type UrlEmbedInfo = { id: string } & (
     { type: "html", html: string } |
+    { type: "fanbox.post", postInfo: { id: string, title: string, creatorId: string, coverImageUrl?: string } } |
     { type: "unknown", [key: string]: any } // 他の型がありそうなので入れてる
     );
 
