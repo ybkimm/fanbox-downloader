@@ -75,13 +75,13 @@ export async function main() {
         await new DownloadHelper(DownloadManage.utils).createDownloadUI('fanbox-downloader');
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
-        const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
+        const creatorId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
         const postId = window.location.href.match(/fanbox.cc\/@.*\/posts\/(\d*)/)?.[1];
-        downloadObject = await searchBy(userId, postId);
+        downloadObject = await searchBy(creatorId, postId);
     } else if (window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) {
-        const userId = window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)?.[1];
+        const creatorId = window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)?.[1];
         const postId = window.location.href.match(/.*\.fanbox\.cc\/posts\/(\d*)/)?.[1];
-        downloadObject = await searchBy(userId, postId);
+        downloadObject = await searchBy(creatorId, postId);
     } else {
         alert(`ここどこですか(${window.location.href})`);
         return;
@@ -112,21 +112,21 @@ export async function main() {
 }
 
 /**
- * 投稿情報を取得して userId に入れる
- * @param userId ユーザーID
+ * 投稿情報を取得してまとめて返す
+ * @param creatorId ユーザーID
  * @param postId 投稿ID
  */
-async function searchBy(userId: string | undefined, postId: string | undefined): Promise<DownloadObject | undefined> {
-    if (!userId) {
+async function searchBy(creatorId: string | undefined, postId: string | undefined): Promise<DownloadObject | undefined> {
+    if (!creatorId) {
         alert("しらないURL");
         return;
     }
-    const plans = DownloadManage.utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${userId}`).body;
+    const plans = DownloadManage.utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}`).body;
     const feeMapper = new Map<number, string>();
     plans?.forEach(plan => feeMapper.set(plan.fee, plan.title));
-    const downloadSettings = new DownloadManage(userId, feeMapper);
-    downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
-    const definedTags = DownloadManage.utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${userId}`)
+    const downloadSettings = new DownloadManage(creatorId, feeMapper);
+    downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${creatorId}`);
+    const definedTags = DownloadManage.utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}`)
         .body?.map(tag => tag.tag) ?? [];
     downloadSettings.addTags(...definedTags);
     if (postId) addByPostInfo(downloadSettings, getPostInfoById(postId));
@@ -311,56 +311,3 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     const embedKeyOrder = (s: string) => embedOrder.indexOf(s) ?? embedOrder.length;
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
 }
-
-type Plans = {
-    body?: {
-        id: string,
-        title: string,
-        fee: number,
-        description: string,
-        coverImageUrl: string,
-    }[]
-};
-type Tags = {
-    body?: {
-        tag: string,
-        count: number,
-        coverImageUrl: string,
-    }[]
-};
-type PostInfo = {
-    title: string,
-    feeRequired: number,
-    id: string,
-    coverImageUrl: string | null,
-    excerpt: string,
-    tags: string[],
-    // DateはJSON.parseで文字列扱い
-    publishedDatetime: string,
-    updatedDatetime: string,
-} & ({
-    type: "image",
-    body: { text: string, images: ImageInfo[] },
-} | {
-    type: "file",
-    body: { text: string, files: FileInfo[] },
-} | {
-    type: "article",
-    body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, embedMap: Record<string, EmbedInfo>, blocks: Block[] },
-    // TODO embedMap, urlEmbedMapの対応
-} | {
-    type: "text",
-    body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
-} | {
-    type: "unknown",
-    body: {},
-});
-type ImageInfo = { originalUrl: string, extension: string };
-type FileInfo = { url: string, name: string, extension: string };
-type EmbedInfo = any; // FIXME
-type ImageBlock = { type: 'image', imageId: string };
-type FileBlock = { type: "file", fileId: string };
-type TextBlock = { type: "p" | "header", text: string };
-type EmbedBlock = { type: "embed", embedId: string };
-type UnknownBlock = { type: "unknown" }; // 他の型がありそうなので入れてる default句で使ってるのでコンパイルすると型が消えて他のを除いた全部に対応する
-type Block = ImageBlock | FileBlock | TextBlock | EmbedBlock | UnknownBlock;
