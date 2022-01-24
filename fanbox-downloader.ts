@@ -1,18 +1,67 @@
 import {DownloadHelper, DownloadObject, DownloadUtils} from 'download-helper/download-helper';
 
-let limit: number | null = 0;
-let isIgnoreFree = false;
+/**
+ * ダウンローダーの管理クラス
+ */
+class DownloadManage {
+    /** ダウンロード用ユーティリティ 何かあれば適当にオーバライドする */
+    public static readonly utils = new DownloadUtils();
 
-// 投稿の情報を個別に取得しない（基本true）
-const isEco = true;
+    /** 投稿の情報を個別に取得しない（基本true, 取得する場合はfalseに変える）*/
+    public readonly isEco = true;
 
-const utils = new DownloadUtils();
+    public readonly downloadObject: DownloadObject;
+    public isIgnoreFree = false;
+    private readonly tags: string[];
+    private isLimitAvailable = false;
+    private limit: number = 0;
 
-// メイン
+    constructor(
+        public readonly userId: string,
+        public readonly feeMap: Map<number, string>,
+        initTags: string[]
+    ) {
+        this.tags = feeMap.get(0) == undefined ? ["無料プラン", ...initTags] : [...initTags];
+        this.downloadObject = new DownloadObject(userId, DownloadManage.utils);
+    }
+
+    getTags(): string[] {
+        return this.tags;
+    }
+
+    getTagByFee(fee: number): string {
+        return this.feeMap.get(fee) ?? (fee > 0 ? `${fee}円` : "無料") + "プラン";
+    }
+
+    setLimitAvailable(isLimitAvailable: boolean) {
+        this.isLimitAvailable = isLimitAvailable;
+    }
+
+    isLimitValid(): boolean {
+        if (!this.isLimitAvailable) return true;
+        return this.limit > 0;
+    }
+
+    decrementLimit() {
+        if (this.isLimitAvailable) {
+            this.limit--;
+        }
+    }
+
+    setLimit(limit: number) {
+        if (this.isLimitAvailable) {
+            this.limit = limit;
+        }
+    }
+}
+
+/**
+ * メイン
+ */
 export async function main() {
-    let downloadObject: DownloadObject | null = null;
+    let downloadObject: DownloadObject | undefined;
     if (window.location.origin === "https://downloads.fanbox.cc") {
-        await new DownloadHelper(utils).createDownloadUI('fanbox-downloader');
+        await new DownloadHelper(DownloadManage.utils).createDownloadUI('fanbox-downloader');
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
         const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
@@ -56,62 +105,64 @@ export async function main() {
  * @param userId ユーザーID
  * @param postId 投稿ID
  */
-async function searchBy(userId: string | undefined, postId: string | undefined): Promise<DownloadObject | null> {
+async function searchBy(userId: string | undefined, postId: string | undefined): Promise<DownloadObject | undefined> {
     if (!userId) {
         alert("しらないURL");
-        return null;
+        return;
     }
-    const plans = utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${userId}`);
+    const plans = DownloadManage.utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${userId}`).body;
     const feeMapper = new Map<number, string>();
-    plans.body?.forEach(plan => feeMapper.set(plan.fee, plan.title));
-    const definedTags = utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${userId}`).body?.map(tag => tag.tag) ?? [];
-    const planTags = plans.body?.map(plan => plan.title) ?? []
+    plans?.forEach(plan => feeMapper.set(plan.fee, plan.title));
+    const definedTags = DownloadManage.utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${userId}`)
+        .body?.map(tag => tag.tag) ?? [];
+    const planTags = plans?.map(plan => plan.title) ?? []
     const tags = [...planTags, ...definedTags];
-    const tagManage = new TagManage(tags, feeMapper);
-    const downloadObject = new DownloadObject(userId, utils);
-    downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
-    if (postId) addByPostInfo(downloadObject, tagManage, getPostInfoById(postId));
-    else await getItemsById(downloadObject, tagManage, userId);
-    downloadObject.setTags(tagManage.getTags());
-    return downloadObject;
+    const downloadSettings = new DownloadManage(userId, feeMapper, tags);
+    downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
+    if (postId) addByPostInfo(downloadSettings, getPostInfoById(postId));
+    else await getItemsById(downloadSettings);
+    downloadSettings.downloadObject.setTags(downloadSettings.getTags());
+    return downloadSettings.downloadObject;
 }
 
 /**
- * 投稿IDからitemsを得る
- * @param downloadObject 結果格納用オブジェクト
- * @param tagManage タグ管理クラスのインスタンス
- * @param postId 投稿ID
+ * ユーザーIDからitemsを得る
+ * @param downloadManage ダウンロード設定
  */
-async function getItemsById(downloadObject: DownloadObject, tagManage: TagManage, postId: string) {
-    isIgnoreFree = confirm("無料コンテンツを省く？");
+async function getItemsById(downloadManage: DownloadManage) {
+    downloadManage.isIgnoreFree = confirm("無料コンテンツを省く？");
     const limitBase = prompt("取得制限数を入力 キャンセルで全て取得");
-    limit = limitBase ? Number.parseInt(limitBase) : null;
-    let count = 1, nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
-    for (; nextUrl; count++) {
+    if (limitBase) {
+        const limit = Number.parseInt(limitBase);
+        if (limit) {
+            downloadManage.setLimitAvailable(true);
+            downloadManage.setLimit(limit);
+        }
+    }
+    let nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${downloadManage.userId}&limit=100`;
+    for (let count = 1; nextUrl; count++) {
         console.log(count + "回目");
-        nextUrl = addByPostListUrl(downloadObject, tagManage, nextUrl, isEco);
-        await utils.sleep(100);
+        nextUrl = addByPostListUrl(downloadManage, nextUrl);
+        await DownloadManage.utils.sleep(100);
     }
 }
 
 /**
  * 投稿リストURLからURLリストに追加
- * @param downloadObject
- * @param tagManage タグ管理クラスのインスタンス
+ * @param downloadManage ダウンロード設定
  * @param url
- * @param eco trueならpostInfoを個別に取得しない
  */
-function addByPostListUrl(downloadObject: DownloadObject, tagManage: TagManage, url: string, eco: boolean) {
-    const postList = utils.httpGetAs<{ body: { items: PostInfo[], nextUrl: string | null } }>(url);
+function addByPostListUrl(downloadManage: DownloadManage, url: string): string | null {
+    const postList = DownloadManage.utils.httpGetAs<{ body: { items: PostInfo[], nextUrl: string | null } }>(url);
     const items = postList.body.items;
 
     console.log("投稿の数:" + items.length);
-    for (let i = 0; i < items.length && limit !== 0; i++) {
-        if (eco) {
+    for (let i = 0; i < items.length && downloadManage.isLimitValid(); i++) {
+        if (downloadManage.isEco) {
             console.log(items[i]);
-            addByPostInfo(downloadObject, tagManage, items[i]);
+            addByPostInfo(downloadManage, items[i]);
         } else {
-            addByPostInfo(downloadObject, tagManage, getPostInfoById(items[i].id));
+            addByPostInfo(downloadManage, getPostInfoById(items[i].id));
         }
     }
     return postList.body.nextUrl;
@@ -122,17 +173,16 @@ function addByPostListUrl(downloadObject: DownloadObject, tagManage: TagManage, 
  * @param postId 投稿ID
  */
 function getPostInfoById(postId: string): PostInfo | undefined {
-    return utils.httpGetAs<{ body: PostInfo | undefined }>(`https://api.fanbox.cc/post.info?postId=${postId}`).body;
+    return DownloadManage.utils.httpGetAs<{ body?: PostInfo }>(`https://api.fanbox.cc/post.info?postId=${postId}`).body;
 }
 
 /**
  * postInfoオブジェクトからURLリストに追加する
- * @param downloadObject 結果格納用オブジェクト
- * @param tagManage タグ管理クラスのインスタンス
+ * @param downloadManage ダウンロード設定
  * @param postInfo 投稿情報オブジェクト
  */
-function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, postInfo: PostInfo | undefined) {
-    if (!postInfo || (isIgnoreFree && (postInfo.feeRequired === 0))) {
+function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | undefined) {
+    if (!postInfo || (downloadManage.isIgnoreFree && (postInfo.feeRequired === 0))) {
         return;
     }
     if (!postInfo.body) {
@@ -140,8 +190,8 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
         return;
     }
     const postName = postInfo.title;
-    const postObject = downloadObject.addPost(postName);
-    postObject.setTags([tagManage.getTagByFee(postInfo.feeRequired), ...postInfo.tags]);
+    const postObject = downloadManage.downloadObject.addPost(postName);
+    postObject.setTags([downloadManage.getTagByFee(postInfo.feeRequired), ...postInfo.tags]);
     const header: string = ((url: string | null) => {
         if (url) {
             const ext = url.split('.').pop() ?? "";
@@ -229,7 +279,7 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
             break;
     }
     postObject.setInfo(informationTextBase + informationText);
-    if (limit != null) limit--;
+    downloadManage.decrementLimit();
 }
 
 function convertImageMap(imageMap: Record<string, ImageInfo>, blocks: Block[]): ImageInfo[] {
@@ -248,24 +298,6 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     const embedOrder = blocks.filter((it): it is EmbedBlock => it.type === "embed").map(it => it.embedId);
     const embedKeyOrder = (s: string) => embedOrder.indexOf(s) ?? embedOrder.length;
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
-}
-
-class TagManage {
-    private readonly feeMap: Map<number, string>;
-    private readonly tags: string[];
-
-    constructor(initTags: string[], feeMap: Map<number, string>) {
-        this.feeMap = feeMap;
-        this.tags = feeMap.get(0) == undefined ? ["無料プラン", ...initTags] : [...initTags];
-    }
-
-    getTags(): string[] {
-        return this.tags;
-    }
-
-    getTagByFee(fee: number): string {
-        return this.feeMap.get(fee) ?? (fee > 0 ? `${fee}円` : "無料") + "プラン";
-    }
 }
 
 type Plans = {
