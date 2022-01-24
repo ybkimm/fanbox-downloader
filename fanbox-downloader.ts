@@ -237,7 +237,8 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
             const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks).map(it => postObject.addFile(postName, it.extension, it.originalUrl));
             const files = convertFileMap(postInfo.body.fileMap, postInfo.body.blocks).map(it => postObject.addFile(it.name, it.extension, it.url));
             const embeds = convertEmbedMap(postInfo.body.embedMap, postInfo.body.blocks);
-            let cntImg = 0, cntFile = 0, cntEmbed = 0;
+            const urlEmbeds = convertUrlEmbedMap(postInfo.body.urlEmbedMap, postInfo.body.blocks);
+            let cntImg = 0, cntFile = 0, cntEmbed = 0, cntUrlEmbed = 0;
             const body = postInfo.body.blocks.map(it => {
                 switch (it.type) {
                     case 'p':
@@ -251,6 +252,15 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
                     case "embed":
                         // FIXME 型が分からないので取りあえず文字列に投げて処理
                         return `<span>${embeds[cntEmbed++]}</span>`;
+                    case "url_embed": {
+                        const urlEmbedInfo = urlEmbeds[cntUrlEmbed++];
+                        if (urlEmbedInfo.type == "html") {
+                            return `\n\n${urlEmbedInfo.html}\n\n`;
+                        } else {
+                            // FIXME 型が分からないので取りあえず文字列に投げて処理
+                            return `<span>${urlEmbedInfo[urlEmbedInfo.type]}</span>`;
+                        }
+                    }
                     default:
                         return console.error(`unknown block type: ${it.type}`);
                 }
@@ -310,4 +320,10 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     const embedOrder = blocks.filter((it): it is EmbedBlock => it.type === "embed").map(it => it.embedId);
     const embedKeyOrder = (s: string) => embedOrder.indexOf(s) ?? embedOrder.length;
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
+}
+
+function convertUrlEmbedMap(urlEmbedMap: Record<string, UrlEmbedInfo>, blocks: Block[]): UrlEmbedInfo[] {
+    const urlEmbedOrder = blocks.filter((it): it is UrlEmbedBlock => it.type === "url_embed").map(it => it.urlEmbedId);
+    const urlEmbedKeyOrder = (s: string) => urlEmbedOrder.indexOf(s) ?? urlEmbedOrder.length;
+    return Object.keys(urlEmbedMap).sort((a, b) => urlEmbedKeyOrder(a) - urlEmbedKeyOrder(b)).map(it => urlEmbedMap[it]);
 }

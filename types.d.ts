@@ -52,9 +52,10 @@ type PostInfo = {
         imageMap: Record<string, ImageInfo>,
         fileMap: Record<string, FileInfo>,
         embedMap: Record<string, EmbedInfo>,
+        urlEmbedMap: Record<string, UrlEmbedInfo>,
         blocks: Block[]
     },
-    // TODO embedMap, urlEmbedMapの対応
+    // TODO embedMapの対応
 } | {
     type: "text",
     body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
@@ -62,12 +63,21 @@ type PostInfo = {
     type: "unknown",
     body: {},
 });
+
+// articleタイプのマップ型に対する値の型
 type ImageInfo = { originalUrl: string, extension: string };
 type FileInfo = { url: string, name: string, extension: string };
 type EmbedInfo = any; // FIXME
+type UrlEmbedInfo = { id: string } & (
+    { type: "html", html: string } |
+    { type: "unknown", [key: string]: any } // 他の型がありそうなので入れてる
+    );
+
+// articleタイプのBlock構成要素
 type ImageBlock = { type: 'image', imageId: string };
 type FileBlock = { type: "file", fileId: string };
 type TextBlock = { type: "p" | "header", text: string };
 type EmbedBlock = { type: "embed", embedId: string };
+type UrlEmbedBlock = { type: "url_embed", urlEmbedId: string };
 type UnknownBlock = { type: "unknown" }; // 他の型がありそうなので入れてる default句で使ってるのでコンパイルすると型が消えて他のを除いた全部に対応する
-type Block = ImageBlock | FileBlock | TextBlock | EmbedBlock | UnknownBlock;
+type Block = ImageBlock | FileBlock | TextBlock | EmbedBlock | UrlEmbedBlock | UnknownBlock;
