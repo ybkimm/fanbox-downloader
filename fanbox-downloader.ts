@@ -1,27 +1,87 @@
 import {DownloadHelper, DownloadObject, DownloadUtils} from 'download-helper/download-helper';
 
-let limit: number | null = 0;
-let isIgnoreFree = false;
+/**
+ * ダウンローダーの管理クラス
+ */
+class DownloadManage {
+    /** ダウンロード用ユーティリティ 何かあれば適当にオーバライドする */
+    public static readonly utils = new DownloadUtils();
 
-// 投稿の情報を個別に取得しない（基本true）
-const isEco = true;
+    /** 投稿の情報を個別に取得しない（基本true, 取得する場合はfalseに変える）*/
+    public readonly isEco = true;
 
-const utils = new DownloadUtils();
+    public readonly downloadObject: DownloadObject;
+    public isIgnoreFree = false;
+    private fees: number[] = [];
+    private tags: string[] = [];
+    private isLimitAvailable = false;
+    private limit: number = 0;
 
-// メイン
+    constructor(
+        public readonly userId: string,
+        public readonly feeMap: Map<number, string>
+    ) {
+        this.downloadObject = new DownloadObject(userId, DownloadManage.utils);
+    }
+
+    addFee(fee: number) {
+        this.fees = [...new Set([...this.fees, fee])];
+    }
+
+    addTags(...tags: string[]) {
+        this.tags = [...new Set([...this.tags, ...tags])];
+    }
+
+    applyTags() {
+        const fees = this.fees
+            .sort((a, b) => a - b)
+            .map(fee => this.getTagByFee(fee));
+        const tags = this.tags.filter(tag => !fees.includes(tag));
+        this.downloadObject.setTags([...fees, ...tags]);
+    }
+
+    getTagByFee(fee: number): string {
+        return this.feeMap.get(fee) ?? (fee > 0 ? `${fee}円` : "無料") + "プラン";
+    }
+
+    setLimitAvailable(isLimitAvailable: boolean) {
+        this.isLimitAvailable = isLimitAvailable;
+    }
+
+    isLimitValid(): boolean {
+        if (!this.isLimitAvailable) return true;
+        return this.limit > 0;
+    }
+
+    decrementLimit() {
+        if (this.isLimitAvailable) {
+            this.limit--;
+        }
+    }
+
+    setLimit(limit: number) {
+        if (this.isLimitAvailable) {
+            this.limit = limit;
+        }
+    }
+}
+
+/**
+ * メイン
+ */
 export async function main() {
-    let downloadObject: DownloadObject | null = null;
+    let downloadObject: DownloadObject | undefined;
     if (window.location.origin === "https://downloads.fanbox.cc") {
-        await new DownloadHelper(utils).createDownloadUI('fanbox-downloader');
+        await new DownloadHelper(DownloadManage.utils).createDownloadUI('fanbox-downloader');
         return;
     } else if (window.location.origin === "https://www.fanbox.cc") {
-        const userId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
+        const creatorId = window.location.href.match(/fanbox.cc\/@([^\/]*)/)?.[1];
         const postId = window.location.href.match(/fanbox.cc\/@.*\/posts\/(\d*)/)?.[1];
-        downloadObject = await searchBy(userId, postId);
+        downloadObject = await searchBy(creatorId, postId);
     } else if (window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)) {
-        const userId = window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)?.[1];
+        const creatorId = window.location.href.match(/^https:\/\/(.*)\.fanbox\.cc\//)?.[1];
         const postId = window.location.href.match(/.*\.fanbox\.cc\/posts\/(\d*)/)?.[1];
-        downloadObject = await searchBy(userId, postId);
+        downloadObject = await searchBy(creatorId, postId);
     } else {
         alert(`ここどこですか(${window.location.href})`);
         return;
@@ -52,66 +112,67 @@ export async function main() {
 }
 
 /**
- * 投稿情報を取得して userId に入れる
- * @param userId ユーザーID
+ * 投稿情報を取得してまとめて返す
+ * @param creatorId ユーザーID
  * @param postId 投稿ID
  */
-async function searchBy(userId: string | undefined, postId: string | undefined): Promise<DownloadObject | null> {
-    if (!userId) {
+async function searchBy(creatorId: string | undefined, postId: string | undefined): Promise<DownloadObject | undefined> {
+    if (!creatorId) {
         alert("しらないURL");
-        return null;
+        return;
     }
-    const plans = utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${userId}`);
+    const plans = DownloadManage.utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}`).body;
     const feeMapper = new Map<number, string>();
-    plans.body?.forEach(plan => feeMapper.set(plan.fee, plan.title));
-    const definedTags = utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${userId}`).body?.map(tag => tag.tag) ?? [];
-    const planTags = plans.body?.map(plan => plan.title) ?? []
-    const tags = [...planTags, ...definedTags];
-    const tagManage = new TagManage(tags, feeMapper);
-    const downloadObject = new DownloadObject(userId, utils);
-    downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
-    if (postId) addByPostInfo(downloadObject, tagManage, getPostInfoById(postId));
-    else await getItemsById(downloadObject, tagManage, userId);
-    downloadObject.setTags(tagManage.getTags());
-    return downloadObject;
+    plans?.forEach(plan => feeMapper.set(plan.fee, plan.title));
+    const downloadSettings = new DownloadManage(creatorId, feeMapper);
+    downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${creatorId}`);
+    const definedTags = DownloadManage.utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${creatorId}`)
+        .body?.map(tag => tag.tag) ?? [];
+    downloadSettings.addTags(...definedTags);
+    if (postId) addByPostInfo(downloadSettings, getPostInfoById(postId));
+    else await getItemsById(downloadSettings);
+    downloadSettings.applyTags();
+    return downloadSettings.downloadObject;
 }
 
 /**
- * 投稿IDからitemsを得る
- * @param downloadObject 結果格納用オブジェクト
- * @param tagManage タグ管理クラスのインスタンス
- * @param postId 投稿ID
+ * ユーザーIDからitemsを得る
+ * @param downloadManage ダウンロード設定
  */
-async function getItemsById(downloadObject: DownloadObject, tagManage: TagManage, postId: string) {
-    isIgnoreFree = confirm("無料コンテンツを省く？");
+async function getItemsById(downloadManage: DownloadManage) {
+    downloadManage.isIgnoreFree = confirm("無料コンテンツを省く？");
     const limitBase = prompt("取得制限数を入力 キャンセルで全て取得");
-    limit = limitBase ? Number.parseInt(limitBase) : null;
-    let count = 1, nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${postId}&limit=100`;
-    for (; nextUrl; count++) {
+    if (limitBase) {
+        const limit = Number.parseInt(limitBase);
+        if (limit) {
+            downloadManage.setLimitAvailable(true);
+            downloadManage.setLimit(limit);
+        }
+    }
+    let nextUrl: string | null = `https://api.fanbox.cc/post.listCreator?creatorId=${downloadManage.userId}&limit=100`;
+    for (let count = 1; nextUrl; count++) {
         console.log(count + "回目");
-        nextUrl = addByPostListUrl(downloadObject, tagManage, nextUrl, isEco);
-        await utils.sleep(100);
+        nextUrl = addByPostListUrl(downloadManage, nextUrl);
+        await DownloadManage.utils.sleep(100);
     }
 }
 
 /**
  * 投稿リストURLからURLリストに追加
- * @param downloadObject
- * @param tagManage タグ管理クラスのインスタンス
+ * @param downloadManage ダウンロード設定
  * @param url
- * @param eco trueならpostInfoを個別に取得しない
  */
-function addByPostListUrl(downloadObject: DownloadObject, tagManage: TagManage, url: string, eco: boolean) {
-    const postList = utils.httpGetAs<{ body: { items: PostInfo[], nextUrl: string | null } }>(url);
+function addByPostListUrl(downloadManage: DownloadManage, url: string): string | null {
+    const postList = DownloadManage.utils.httpGetAs<{ body: { items: PostInfo[], nextUrl: string | null } }>(url);
     const items = postList.body.items;
 
     console.log("投稿の数:" + items.length);
-    for (let i = 0; i < items.length && limit !== 0; i++) {
-        if (eco) {
+    for (let i = 0; i < items.length && downloadManage.isLimitValid(); i++) {
+        if (downloadManage.isEco) {
             console.log(items[i]);
-            addByPostInfo(downloadObject, tagManage, items[i]);
+            addByPostInfo(downloadManage, items[i]);
         } else {
-            addByPostInfo(downloadObject, tagManage, getPostInfoById(items[i].id));
+            addByPostInfo(downloadManage, getPostInfoById(items[i].id));
         }
     }
     return postList.body.nextUrl;
@@ -122,17 +183,16 @@ function addByPostListUrl(downloadObject: DownloadObject, tagManage: TagManage, 
  * @param postId 投稿ID
  */
 function getPostInfoById(postId: string): PostInfo | undefined {
-    return utils.httpGetAs<{ body: PostInfo | undefined }>(`https://api.fanbox.cc/post.info?postId=${postId}`).body;
+    return DownloadManage.utils.httpGetAs<{ body?: PostInfo }>(`https://api.fanbox.cc/post.info?postId=${postId}`).body;
 }
 
 /**
  * postInfoオブジェクトからURLリストに追加する
- * @param downloadObject 結果格納用オブジェクト
- * @param tagManage タグ管理クラスのインスタンス
+ * @param downloadManage ダウンロード設定
  * @param postInfo 投稿情報オブジェクト
  */
-function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, postInfo: PostInfo | undefined) {
-    if (!postInfo || (isIgnoreFree && (postInfo.feeRequired === 0))) {
+function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | undefined) {
+    if (!postInfo || (downloadManage.isIgnoreFree && (postInfo.feeRequired === 0))) {
         return;
     }
     if (!postInfo.body) {
@@ -140,8 +200,10 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
         return;
     }
     const postName = postInfo.title;
-    const postObject = downloadObject.addPost(postName);
-    postObject.setTags([tagManage.getTagByFee(postInfo.feeRequired), ...postInfo.tags]);
+    const postObject = downloadManage.downloadObject.addPost(postName);
+    postObject.setTags([downloadManage.getTagByFee(postInfo.feeRequired), ...postInfo.tags]);
+    downloadManage.addFee(postInfo.feeRequired);
+    downloadManage.addTags(...postInfo.tags);
     const header: string = ((url: string | null) => {
         if (url) {
             const ext = url.split('.').pop() ?? "";
@@ -175,7 +237,8 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
             const images = convertImageMap(postInfo.body.imageMap, postInfo.body.blocks).map(it => postObject.addFile(postName, it.extension, it.originalUrl));
             const files = convertFileMap(postInfo.body.fileMap, postInfo.body.blocks).map(it => postObject.addFile(it.name, it.extension, it.url));
             const embeds = convertEmbedMap(postInfo.body.embedMap, postInfo.body.blocks);
-            let cntImg = 0, cntFile = 0, cntEmbed = 0;
+            const urlEmbeds = convertUrlEmbedMap(postInfo.body.urlEmbedMap, postInfo.body.blocks);
+            let cntImg = 0, cntFile = 0, cntEmbed = 0, cntUrlEmbed = 0;
             const body = postInfo.body.blocks.map(it => {
                 switch (it.type) {
                     case 'p':
@@ -187,8 +250,21 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
                     case 'image':
                         return postObject.getImageLinkTag(images[cntImg++]);
                     case "embed":
-                        // FIXME 型が分からないので取りあえず文字列に投げて処理
-                        return `<span>${embeds[cntEmbed++]}</span>`;
+                        // FIXME 型が分からないのでJSON化して中身だけ出す
+                        return `<span>${JSON.stringify(embeds[cntEmbed++])}</span>`;
+                    case "url_embed": {
+                        const urlEmbedInfo = urlEmbeds[cntUrlEmbed++];
+                        switch (urlEmbedInfo.type) {
+                            case "html": // iframeはブラウザ側の問題なのでひとまずそのままにする
+                                return `\n${urlEmbedInfo.html}\n\n`;
+                            case "fanbox.post":
+                                const url = `https://www.fanbox.cc/@${urlEmbedInfo.postInfo.creatorId}/posts/${urlEmbedInfo.postInfo.id}`;
+                                return postObject.getLinkTag(url, urlEmbedInfo.postInfo.title);
+                            default:
+                                // FIXME 型が分からないのでJSON化して中身だけ出す
+                                return `<span>${JSON.stringify(urlEmbedInfo)}</span>`;
+                        }
+                    }
                     default:
                         return console.error(`unknown block type: ${it.type}`);
                 }
@@ -200,26 +276,9 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
                 .join("\n") + '\n';
             break;
         }
-        case "text": {// FIXME 型が分からないので適当に書いてる
-            let body = '';
-            if (postInfo.body.text) {
-                body = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-                informationText = postInfo.body.text;
-            } else if (postInfo.body.blocks) {
-                body = postInfo.body.blocks.map(it => {
-                    switch (it.type) {
-                        case 'header':
-                            return `<h2><span>${it.text}</span></h2>`;
-                        case 'p':
-                            return `<span>${it.text}</span>`;
-                        default:
-                            return '';
-                    }
-                }).join("<br>\n");
-                informationText = postInfo.body.blocks
-                    .map(it => it.type == 'header' || it.type == 'p' ? it.text : '')
-                    .join("\n") + '\n';
-            } else informationText = 'undefined text type\n';
+        case "text": {
+            const body = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+            informationText = postInfo.body.text;
             postObject.setHtml(header + body);
             break;
         }
@@ -229,7 +288,7 @@ function addByPostInfo(downloadObject: DownloadObject, tagManage: TagManage, pos
             break;
     }
     postObject.setInfo(informationTextBase + informationText);
-    if (limit != null) limit--;
+    downloadManage.decrementLimit();
 }
 
 function convertImageMap(imageMap: Record<string, ImageInfo>, blocks: Block[]): ImageInfo[] {
@@ -250,73 +309,8 @@ function convertEmbedMap(embedMap: Record<string, EmbedInfo>, blocks: Block[]): 
     return Object.keys(embedMap).sort((a, b) => embedKeyOrder(a) - embedKeyOrder(b)).map(it => embedMap[it]);
 }
 
-class TagManage {
-    private readonly feeMap: Map<number, string>;
-    private readonly tags: string[];
-
-    constructor(initTags: string[], feeMap: Map<number, string>) {
-        this.feeMap = feeMap;
-        this.tags = feeMap.get(0) == undefined ? ["無料プラン", ...initTags] : [...initTags];
-    }
-
-    getTags(): string[] {
-        return this.tags;
-    }
-
-    getTagByFee(fee: number): string {
-        return this.feeMap.get(fee) ?? (fee > 0 ? `${fee}円` : "無料") + "プラン";
-    }
+function convertUrlEmbedMap(urlEmbedMap: Record<string, UrlEmbedInfo>, blocks: Block[]): UrlEmbedInfo[] {
+    const urlEmbedOrder = blocks.filter((it): it is UrlEmbedBlock => it.type === "url_embed").map(it => it.urlEmbedId);
+    const urlEmbedKeyOrder = (s: string) => urlEmbedOrder.indexOf(s) ?? urlEmbedOrder.length;
+    return Object.keys(urlEmbedMap).sort((a, b) => urlEmbedKeyOrder(a) - urlEmbedKeyOrder(b)).map(it => urlEmbedMap[it]);
 }
-
-type Plans = {
-    body?: {
-        id: string,
-        title: string,
-        fee: number,
-        description: string,
-        coverImageUrl: string,
-    }[]
-};
-type Tags = {
-    body?: {
-        tag: string,
-        count: number,
-        coverImageUrl: string,
-    }[]
-};
-type PostInfo = {
-    title: string,
-    feeRequired: number,
-    id: string,
-    coverImageUrl: string | null,
-    excerpt: string,
-    tags: string[],
-    // DateはJSON.parseで文字列扱い
-    publishedDatetime: string,
-    updatedDatetime: string,
-} & ({
-    type: "image",
-    body: { text: string, images: ImageInfo[] },
-} | {
-    type: "file",
-    body: { text: string, files: FileInfo[] },
-} | {
-    type: "article",
-    body: { imageMap: Record<string, ImageInfo>, fileMap: Record<string, FileInfo>, embedMap: Record<string, EmbedInfo>, blocks: Block[] },
-    // TODO embedMap, urlEmbedMapの対応
-} | {
-    type: "text",
-    body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
-} | {
-    type: "unknown",
-    body: {},
-});
-type ImageInfo = { originalUrl: string, extension: string };
-type FileInfo = { url: string, name: string, extension: string };
-type EmbedInfo = any; // FIXME
-type ImageBlock = { type: 'image', imageId: string };
-type FileBlock = { type: "file", fileId: string };
-type TextBlock = { type: "p" | "header", text: string };
-type EmbedBlock = { type: "embed", embedId: string };
-type UnknownBlock = { type: "unknown" }; // 他の型がありそうなので入れてる default句で使ってるのでコンパイルすると型が消えて他のを除いた全部に対応する
-type Block = ImageBlock | FileBlock | TextBlock | EmbedBlock | UnknownBlock;
