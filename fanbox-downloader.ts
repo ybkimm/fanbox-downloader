@@ -12,21 +12,32 @@ class DownloadManage {
 
     public readonly downloadObject: DownloadObject;
     public isIgnoreFree = false;
-    private readonly tags: string[];
+    private fees: number[] = [];
+    private tags: string[] = [];
     private isLimitAvailable = false;
     private limit: number = 0;
 
     constructor(
         public readonly userId: string,
-        public readonly feeMap: Map<number, string>,
-        initTags: string[]
+        public readonly feeMap: Map<number, string>
     ) {
-        this.tags = feeMap.get(0) == undefined ? ["無料プラン", ...initTags] : [...initTags];
         this.downloadObject = new DownloadObject(userId, DownloadManage.utils);
     }
 
-    getTags(): string[] {
-        return this.tags;
+    addFee(fee: number) {
+        this.fees = [...new Set([...this.fees, fee])];
+    }
+
+    addTags(...tags: string[]) {
+        this.tags = [...new Set([...this.tags, ...tags])];
+    }
+
+    applyTags() {
+        const fees = this.fees
+            .sort((a, b) => a - b)
+            .map(fee => this.getTagByFee(fee));
+        const tags = this.tags.filter(tag => !fees.includes(tag));
+        this.downloadObject.setTags([...fees, ...tags]);
     }
 
     getTagByFee(fee: number): string {
@@ -113,15 +124,14 @@ async function searchBy(userId: string | undefined, postId: string | undefined):
     const plans = DownloadManage.utils.httpGetAs<Plans>(`https://api.fanbox.cc/plan.listCreator?creatorId=${userId}`).body;
     const feeMapper = new Map<number, string>();
     plans?.forEach(plan => feeMapper.set(plan.fee, plan.title));
+    const downloadSettings = new DownloadManage(userId, feeMapper);
+    downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
     const definedTags = DownloadManage.utils.httpGetAs<Tags>(`https://api.fanbox.cc/tag.getFeatured?creatorId=${userId}`)
         .body?.map(tag => tag.tag) ?? [];
-    const planTags = plans?.map(plan => plan.title) ?? []
-    const tags = [...planTags, ...definedTags];
-    const downloadSettings = new DownloadManage(userId, feeMapper, tags);
-    downloadSettings.downloadObject.setUrl(`https://www.fanbox.cc/@${userId}`);
+    downloadSettings.addTags(...definedTags);
     if (postId) addByPostInfo(downloadSettings, getPostInfoById(postId));
     else await getItemsById(downloadSettings);
-    downloadSettings.downloadObject.setTags(downloadSettings.getTags());
+    downloadSettings.applyTags();
     return downloadSettings.downloadObject;
 }
 
@@ -192,6 +202,8 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
     const postName = postInfo.title;
     const postObject = downloadManage.downloadObject.addPost(postName);
     postObject.setTags([downloadManage.getTagByFee(postInfo.feeRequired), ...postInfo.tags]);
+    downloadManage.addFee(postInfo.feeRequired);
+    downloadManage.addTags(...postInfo.tags);
     const header: string = ((url: string | null) => {
         if (url) {
             const ext = url.split('.').pop() ?? "";
