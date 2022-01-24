@@ -58,7 +58,7 @@ type PostInfo = {
     // TODO embedMapの対応
 } | {
     type: "text",
-    body: { text?: string, blocks?: Block[] }, // FIXME 中身が分からないので想像で書いてる
+    body: { text: string },
 } | {
     type: "unknown",
     body: {},

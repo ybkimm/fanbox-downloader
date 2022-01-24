@@ -272,26 +272,9 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
                 .join("\n") + '\n';
             break;
         }
-        case "text": {// FIXME 型が分からないので適当に書いてる
-            let body = '';
-            if (postInfo.body.text) {
-                body = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
-                informationText = postInfo.body.text;
-            } else if (postInfo.body.blocks) {
-                body = postInfo.body.blocks.map(it => {
-                    switch (it.type) {
-                        case 'header':
-                            return `<h2><span>${it.text}</span></h2>`;
-                        case 'p':
-                            return `<span>${it.text}</span>`;
-                        default:
-                            return '';
-                    }
-                }).join("<br>\n");
-                informationText = postInfo.body.blocks
-                    .map(it => it.type == 'header' || it.type == 'p' ? it.text : '')
-                    .join("\n") + '\n';
-            } else informationText = 'undefined text type\n';
+        case "text": {
+            const body = postInfo.body.text.split("\n").map(it => `<span>${it}</span>`).join("<br>\n");
+            informationText = postInfo.body.text;
             postObject.setHtml(header + body);
             break;
         }
