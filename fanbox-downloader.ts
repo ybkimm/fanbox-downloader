@@ -255,8 +255,9 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
                     case "url_embed": {
                         const urlEmbedInfo = urlEmbeds[cntUrlEmbed++];
                         switch (urlEmbedInfo.type) {
-                            case "html": // iframeはブラウザ側の問題なのでひとまずそのままにする
-                                return `\n${urlEmbedInfo.html}\n\n`;
+                            case "html":
+                                const iframeUrl = urlEmbedInfo.html.match(/<iframe.*src="(http.*)"/)?.[1];
+                                return iframeUrl ? postObject.getLinkTag(iframeUrl, "iframe link") : `\n${urlEmbedInfo.html}\n\n`;
                             case "fanbox.post":
                                 const url = `https://www.fanbox.cc/@${urlEmbedInfo.postInfo.creatorId}/posts/${urlEmbedInfo.postInfo.id}`;
                                 return postObject.getLinkTag(url, urlEmbedInfo.postInfo.title);
