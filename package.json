@@ -47,16 +47,16 @@
       ]
     },
     "plugins": [
-      "eslint-plugin-import",
       "@typescript-eslint",
+      "eslint-plugin-import",
       "eslint-plugin-prettier"
     ],
     "ignorePatterns": "**/*.js",
     "rules": {
-      "prettier/prettier": "error",
       "@typescript-eslint/consistent-type-assertions": "error",
       "@typescript-eslint/no-use-before-define": "off",
-      "import/order": "error"
+      "import/order": "error",
+      "prettier/prettier": "error"
     }
   },
   "prettier": {
