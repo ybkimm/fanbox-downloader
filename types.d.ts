@@ -41,45 +41,47 @@ type PostInfo = {
 	updatedDatetime: string;
 } & (
 	| {
-			type: 'image';
-			body: { text: string; images: ImageInfo[] };
-	  }
+	type: 'image';
+	body: { text: string; images: ImageInfo[] };
+}
 	| {
-			type: 'file';
-			body: { text: string; files: FileInfo[] };
-	  }
+	type: 'file';
+	body: { text: string; files: FileInfo[] };
+}
 	| {
-			type: 'article';
-			body: {
-				imageMap: Record<string, ImageInfo>;
-				fileMap: Record<string, FileInfo>;
-				embedMap: Record<string, EmbedInfo>; // TODO embedMapの対応
-				urlEmbedMap: Record<string, UrlEmbedInfo>;
-				blocks: Block[];
-			};
-	  }
+	type: 'article';
+	body: {
+		imageMap: Record<string, ImageInfo>;
+		fileMap: Record<string, FileInfo>;
+		embedMap: Record<string, EmbedInfo>; // TODO embedMapの対応
+		urlEmbedMap: Record<string, UrlEmbedInfo>;
+		blocks: Block[];
+	};
+}
 	| {
-			type: 'text';
-			body: { text: string };
-	  }
+	type: 'text';
+	body: { text: string };
+}
 	| {
-			type: 'unknown';
-			body: unknown;
-	  }
-);
+	type: 'unknown';
+	body: unknown;
+}
+	);
 
 // articleタイプのマップ型に対する値の型
 type ImageInfo = { originalUrl: string; extension: string };
 type FileInfo = { url: string; name: string; extension: string };
 type EmbedInfo = unknown; // FIXME
 type UrlEmbedInfo = { id: string } & (
+	| { type: 'default'; url: string; host: string }
 	| { type: 'html'; html: string }
+	| { type: 'html.card'; html: string }
 	| {
-			type: 'fanbox.post';
-			postInfo: { id: string; title: string; creatorId: string; coverImageUrl?: string };
-	  }
+	type: 'fanbox.post';
+	postInfo: { id: string; title: string; creatorId: string; coverImageUrl?: string };
+}
 	| { type: 'unknown'; [key: string]: unknown }
-); // 他の型がありそうなので入れてる
+	); // 他の型がありそうなので入れてる
 
 // articleタイプのBlock構成要素
 type ImageBlock = { type: 'image'; imageId: string };

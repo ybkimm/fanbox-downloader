@@ -294,7 +294,10 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 						case 'url_embed': {
 							const urlEmbedInfo = urlEmbeds[cntUrlEmbed++];
 							switch (urlEmbedInfo.type) {
+								case 'default':
+									return postObject.getLinkTag(urlEmbedInfo.url, urlEmbedInfo.host);
 								case 'html':
+								case 'html.card':
 									const iframeUrl = urlEmbedInfo.html.match(/<iframe.*src="(http.*)"/)?.[1];
 									return iframeUrl
 										? postObject.getLinkTag(iframeUrl, 'iframe link')
