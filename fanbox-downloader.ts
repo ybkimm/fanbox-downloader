@@ -178,16 +178,16 @@ async function getItemsById(downloadManage: DownloadManage) {
 function addByPostListUrl(downloadManage: DownloadManage, url: string): string | null {
 	const postList =
 		DownloadManage.utils.httpGetAs<{ body: { items: PostInfo[]; nextUrl: string | null } }>(url);
-	const items = postList.body.items;
-
-	console.log(`投稿の数:${items.length}`);
-	for (let i = 0; i < items.length && downloadManage.isLimitValid(); i++) {
-		if (downloadManage.isEco) {
-			console.log(items[i]);
-			addByPostInfo(downloadManage, items[i]);
-		} else {
-			addByPostInfo(downloadManage, getPostInfoById(items[i].id));
-		}
+	console.log(`投稿の数:${postList.body.items.length}`);
+	for (const item of postList.body.items) {
+		if (downloadManage.isLimitValid()) {
+			if (downloadManage.isEco) {
+				console.log(item);
+				addByPostInfo(downloadManage, item);
+			} else {
+				addByPostInfo(downloadManage, getPostInfoById(item.id));
+			}
+		} else break;
 	}
 	return postList.body.nextUrl;
 }
@@ -294,7 +294,10 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 						case 'url_embed': {
 							const urlEmbedInfo = urlEmbeds[cntUrlEmbed++];
 							switch (urlEmbedInfo.type) {
+								case 'default':
+									return postObject.getLinkTag(urlEmbedInfo.url, urlEmbedInfo.host);
 								case 'html':
+								case 'html.card':
 									const iframeUrl = urlEmbedInfo.html.match(/<iframe.*src="(http.*)"/)?.[1];
 									return iframeUrl
 										? postObject.getLinkTag(iframeUrl, 'iframe link')
