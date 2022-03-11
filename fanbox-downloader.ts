@@ -7,9 +7,6 @@ class DownloadManage {
 	/** ダウンロード用ユーティリティ 何かあれば適当にオーバライドする */
 	public static readonly utils = new DownloadUtils();
 
-	/** 投稿の情報を個別に取得しない（基本true, 取得する場合はfalseに変える）*/
-	public readonly isEco = true;
-
 	public readonly downloadObject: DownloadObject;
 
 	public isIgnoreFree = false;
@@ -165,7 +162,7 @@ async function getItemsById(downloadManage: DownloadManage) {
 		| null = `https://api.fanbox.cc/post.listCreator?creatorId=${downloadManage.userId}&limit=100`;
 	for (let count = 1; nextUrl; count++) {
 		console.log(`${count}回目`);
-		nextUrl = addByPostListUrl(downloadManage, nextUrl);
+		nextUrl = await addByPostListUrl(downloadManage, nextUrl);
 		await DownloadManage.utils.sleep(100);
 	}
 }
@@ -175,16 +172,19 @@ async function getItemsById(downloadManage: DownloadManage) {
  * @param downloadManage ダウンロード設定
  * @param url
  */
-function addByPostListUrl(downloadManage: DownloadManage, url: string): string | null {
+async function addByPostListUrl(
+	downloadManage: DownloadManage,
+	url: string,
+): Promise<string | null> {
 	const postList =
 		DownloadManage.utils.httpGetAs<{ body: { items: PostInfo[]; nextUrl: string | null } }>(url);
 	console.log(`投稿の数:${postList.body.items.length}`);
 	for (const item of postList.body.items) {
 		if (downloadManage.isLimitValid()) {
-			if (downloadManage.isEco) {
-				console.log(item);
+			if (item.body) {
 				addByPostInfo(downloadManage, item);
 			} else {
+				await DownloadManage.utils.sleep(100);
 				addByPostInfo(downloadManage, getPostInfoById(item.id));
 			}
 		} else break;
