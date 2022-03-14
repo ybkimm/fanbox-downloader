@@ -35,6 +35,7 @@ type PostInfo = {
 	id: string;
 	coverImageUrl: string | null;
 	excerpt: string;
+	txt: string;
 	tags: string[];
 	// DateはJSON.parseで文字列扱い
 	publishedDatetime: string;

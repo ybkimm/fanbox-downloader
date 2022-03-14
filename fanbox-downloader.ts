@@ -14,6 +14,8 @@ class DownloadManage {
 
 	public isIgnoreFree = false;
 
+	public isExportJson = false;
+
 	private fees: number[] = [];
 
 	private tags: string[] = [];
@@ -160,6 +162,7 @@ async function getItemsById(downloadManage: DownloadManage) {
 			downloadManage.setLimit(limit);
 		}
 	}
+	downloadManage.isExportJson = confirm('info.txtの代わりに、info.jsonを出力する？');
 	let nextUrl:
 		| string
 		| null = `https://api.fanbox.cc/post.listCreator?creatorId=${downloadManage.userId}&limit=100`;
@@ -337,7 +340,12 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 			console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
 			break;
 	}
-	postObject.setInfo(informationTextBase + informationText);
+	if (downloadManage.isExportJson) {
+		postInfo.txt = informationText;
+		postObject.setInfo(JSON.stringify(postInfo, null, 0));
+	} else {
+		postObject.setInfo(informationTextBase + informationText);
+	}
 	downloadManage.decrementLimit();
 }
 
