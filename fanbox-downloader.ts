@@ -7,11 +7,12 @@ class DownloadManage {
 	/** ダウンロード用ユーティリティ 何かあれば適当にオーバライドする */
 	public static readonly utils = new DownloadUtils();
 
+	/** 投稿情報の出力をJSONにする（基本true, txtにする場合はfalseに変える）*/
+	public static readonly isExportJson = true;
+
 	public readonly downloadObject: DownloadObject;
 
 	public isIgnoreFree = false;
-
-	public isExportJson = false;
 
 	private fees: number[] = [];
 
@@ -159,14 +160,13 @@ async function getItemsById(downloadManage: DownloadManage) {
 			downloadManage.setLimit(limit);
 		}
 	}
-	downloadManage.isExportJson = confirm('info.txtの代わりに、info.jsonを出力する？');
 	let nextUrl:
 		| string
 		| null = `https://api.fanbox.cc/post.listCreator?creatorId=${downloadManage.userId}&limit=100`;
 	for (let count = 1; nextUrl; count++) {
 		console.log(`${count}回目`);
 		nextUrl = await addByPostListUrl(downloadManage, nextUrl);
-		await DownloadManage.utils.sleep(100);
+		await DownloadManage.utils.sleep(10);
 	}
 }
 
@@ -186,8 +186,8 @@ async function addByPostListUrl(
 		if (downloadManage.isLimitValid()) {
 			if (item.body) {
 				addByPostInfo(downloadManage, item);
-			} else {
-				await DownloadManage.utils.sleep(100);
+			} else if (!item.isRestricted) {
+				await DownloadManage.utils.sleep(10);
 				addByPostInfo(downloadManage, getPostInfoById(item.id));
 			}
 		} else break;
@@ -214,7 +214,7 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 	if (!postInfo || (downloadManage.isIgnoreFree && postInfo.feeRequired === 0)) {
 		return;
 	}
-	if (!postInfo.body) {
+	if (!postInfo.body || postInfo.isRestricted) {
 		console.log(
 			`取得できませんでした(支援がたりない？)\nfeeRequired: ${postInfo.feeRequired}@${postInfo.id}`,
 		);
@@ -234,12 +234,8 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 		}
 		return `<h5>${postName}</h5>\n<br>\n`;
 	})(postInfo.coverImageUrl);
-	const informationTextBase =
-		`id: ${postInfo.id}\ntitle: ${postInfo.title}\nfee: ${postInfo.feeRequired}\n` +
-		`publishedDatetime: ${postInfo.publishedDatetime}\nupdatedDatetime: ${postInfo.updatedDatetime}\n` +
-		`tags: ${postInfo.tags.join(', ')}\nexcerpt:\n${postInfo.excerpt}\ntxt:\n`;
-	let informationText: string;
 
+	let parsedText: string;
 	switch (postInfo.type) {
 		case 'image': {
 			const images = postInfo.body.images.map((it) =>
@@ -251,7 +247,7 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 				.map((it) => `<span>${it}</span>`)
 				.join('<br>\n');
 			postObject.setHtml(header + imageTags + '<br>\n' + text);
-			informationText = `${postInfo.body.text}\n`;
+			parsedText = `${postInfo.body.text}\n`;
 			break;
 		}
 		case 'file': {
@@ -264,7 +260,7 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 				.map((it) => `<span>${it}</span>`)
 				.join('<br>\n');
 			postObject.setHtml(header + fileTags + '<br>\n' + text);
-			informationText = `${postInfo.body.text}\n`;
+			parsedText = `${postInfo.body.text}\n`;
 			break;
 		}
 		case 'article': {
@@ -319,7 +315,7 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 				})
 				.join('<br>\n');
 			postObject.setHtml(header + body);
-			informationText =
+			parsedText =
 				postInfo.body.blocks
 					.filter((it): it is TextBlock => it.type === 'p' || it.type === 'header')
 					.map((it) => it.text)
@@ -331,20 +327,34 @@ function addByPostInfo(downloadManage: DownloadManage, postInfo: PostInfo | unde
 				.split('\n')
 				.map((it) => `<span>${it}</span>`)
 				.join('<br>\n');
-			informationText = postInfo.body.text;
+			parsedText = postInfo.body.text;
 			postObject.setHtml(header + body);
 			break;
 		}
 		default:
-			informationText = `不明なタイプ\n${postInfo.type}@${postInfo.id}\n`;
+			parsedText = `不明なタイプ\n${postInfo.type}@${postInfo.id}\n`;
 			console.log(`不明なタイプ\n${postInfo.type}@${postInfo.id}`);
 			break;
 	}
-	if (downloadManage.isExportJson) {
-		postInfo.txt = informationText;
-		postObject.setInfo(JSON.stringify(postInfo, null, 0));
+
+	const informationObject = {
+		postId: postInfo.id,
+		title: postInfo.title,
+		creatorId: postInfo.creatorId,
+		fee: postInfo.feeRequired,
+		publishedDatetime: postInfo.publishedDatetime,
+		updatedDatetime: postInfo.updatedDatetime,
+		tags: postInfo.tags,
+		likeCount: postInfo.likeCount,
+		commentCount: postInfo.commentCount,
+	};
+	if (DownloadManage.isExportJson) {
+		postObject.setInfo(JSON.stringify({ ...informationObject, parsedText }));
 	} else {
-		postObject.setInfo(informationTextBase + informationText);
+		const exportInfoText = (Object.keys(informationObject) as (keyof typeof informationObject)[])
+			.map((key) => `${key}:${JSON.stringify(informationObject[key])}`)
+			.join('\n');
+		postObject.setInfo(exportInfoText + '\nparsedText:\n' + parsedText);
 	}
 	downloadManage.decrementLimit();
 }
