@@ -160,12 +160,12 @@ async function getItemsById(downloadManage: DownloadManage) {
 			downloadManage.setLimit(limit);
 		}
 	}
-	let nextUrl:
-		| string
-		| null = `https://api.fanbox.cc/post.listCreator?creatorId=${downloadManage.userId}&limit=100`;
-	for (let count = 1; nextUrl; count++) {
-		console.log(`${count}回目`);
-		nextUrl = await addByPostListUrl(downloadManage, nextUrl);
+	const urls = DownloadManage.utils.httpGetAs<{ body: string[] }>(
+		`https://api.fanbox.cc/post.paginateCreator?creatorId=${downloadManage.userId}`,
+	).body;
+	for (let i = 0; i < urls.length; i++) {
+		console.log(`${i + 1}回目`);
+		await addByPostListUrl(downloadManage, urls[i]);
 		await DownloadManage.utils.sleep(10);
 	}
 }
@@ -175,24 +175,19 @@ async function getItemsById(downloadManage: DownloadManage) {
  * @param downloadManage ダウンロード設定
  * @param url
  */
-async function addByPostListUrl(
-	downloadManage: DownloadManage,
-	url: string,
-): Promise<string | null> {
-	const postList =
-		DownloadManage.utils.httpGetAs<{ body: { items: PostInfo[]; nextUrl: string | null } }>(url);
-	console.log(`投稿の数:${postList.body.items.length}`);
-	for (const item of postList.body.items) {
+async function addByPostListUrl(downloadManage: DownloadManage, url: string): Promise<void> {
+	const postList = DownloadManage.utils.httpGetAs<{ body: PostInfo[] }>(url).body;
+	console.log(`投稿の数:${postList.length}`);
+	for (const post of postList) {
 		if (downloadManage.isLimitValid()) {
-			if (item.body) {
-				addByPostInfo(downloadManage, item);
-			} else if (!item.isRestricted) {
+			if (post.body) {
+				addByPostInfo(downloadManage, post);
+			} else if (!post.isRestricted) {
 				await DownloadManage.utils.sleep(10);
-				addByPostInfo(downloadManage, getPostInfoById(item.id));
+				addByPostInfo(downloadManage, getPostInfoById(post.id));
 			}
 		} else break;
 	}
-	return postList.body.nextUrl;
 }
 
 /**
