@@ -1,4 +1,4 @@
-import { DownloadHelper, DownloadObject, DownloadUtils } from 'download-helper/download-helper';
+import { DownloadHelper, DownloadObject, DownloadUtils } from 'download-helper/download-helper.js';
 
 /**
  * ダウンローダーの管理クラス
@@ -179,11 +179,12 @@ async function addByPostListUrl(downloadManage: DownloadManage, url: string): Pr
 	const postList = DownloadManage.utils.httpGetAs<{ body: PostInfo[] }>(url).body;
 	console.log(`投稿の数:${postList.length}`);
 	for (const post of postList) {
+		console.log(post.id);
+		await DownloadManage.utils.sleep(300);
 		if (downloadManage.isLimitValid()) {
 			if (post.body) {
 				addByPostInfo(downloadManage, post);
 			} else if (!post.isRestricted) {
-				await DownloadManage.utils.sleep(1000);
 				addByPostInfo(downloadManage, getPostInfoById(post.id));
 			}
 		} else break;
